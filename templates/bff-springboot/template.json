@@ -14,8 +14,8 @@
     "javaVersion": {
       "type": "select",
       "prompt": "Java version",
-      "choices": ["21", "17"],
-      "default": "21"
+      "choices": ["25", "21", "17"],
+      "default": "25"
     },
     "springBootVersion": {
       "type": "text",
