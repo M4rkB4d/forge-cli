@@ -1,0 +1,16 @@
+{
+  "name": "azure-sql",
+  "displayName": "Azure SQL Database",
+  "variables": {
+    "dbName": {
+      "type": "text",
+      "prompt": "Database name",
+      "default": ""
+    }
+  },
+  "mergeStrategy": {
+    "pom.xml": "xml-append-dependencies",
+    "application.yml": "yaml-merge",
+    "package.json": "json-merge"
+  }
+}

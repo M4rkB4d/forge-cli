@@ -1,0 +1,29 @@
+# <%= projectName %>
+
+## Prerequisites
+
+- Java <%= javaVersion %>
+- Maven 3.9+
+
+## Running locally
+
+```bash
+./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+```
+
+## Building
+
+```bash
+./mvnw clean package
+```
+
+## Docker
+
+```bash
+docker build -t <%= projectName %> .
+docker run -p 8080:8080 <%= projectName %>
+```
+
+## API docs
+
+Swagger UI: http://localhost:8080/swagger-ui.html

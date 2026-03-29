@@ -1,0 +1,25 @@
+# <%= projectName %>
+
+Express.js BFF service.
+
+## Setup
+
+```bash
+npm install
+cp .env.example .env  # configure environment
+npm run dev
+```
+
+## Build
+
+```bash
+npm run build
+npm start
+```
+
+## Docker
+
+```bash
+docker build -t <%= projectName %> .
+docker run -p 3000:3000 <%= projectName %>
+```

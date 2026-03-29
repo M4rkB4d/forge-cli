@@ -1,0 +1,21 @@
+import axios, { AxiosInstance } from 'axios';
+
+const clients: Map<string, AxiosInstance> = new Map();
+
+export function getClient(serviceName: string, baseURL: string): AxiosInstance {
+  if (clients.has(serviceName)) return clients.get(serviceName)!;
+
+  const client = axios.create({
+    baseURL,
+    timeout: 10000,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
+  client.interceptors.request.use((config) => {
+    config.headers['X-Source'] = '<%= projectName %>';
+    return config;
+  });
+
+  clients.set(serviceName, client);
+  return client;
+}

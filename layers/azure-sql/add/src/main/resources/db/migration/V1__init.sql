@@ -1,0 +1,2 @@
+-- Initial schema migration
+-- Add your tables here

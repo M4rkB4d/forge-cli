@@ -1,0 +1,15 @@
+import { BrowserRouter, Routes, Route } from 'react-router';
+import { MainLayout } from '../components/layout/MainLayout';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
+
+export function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route element={<MainLayout />}>
+          <Route path="/" element={<DashboardPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}

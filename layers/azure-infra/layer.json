@@ -1,0 +1,21 @@
+{
+  "name": "azure-infra",
+  "displayName": "Azure Infrastructure (Bicep)",
+  "variables": {
+    "deployTarget": {
+      "type": "choice",
+      "prompt": "Deploy target",
+      "options": ["Azure Container Apps", "Azure App Service", "AKS"]
+    },
+    "resourceGroup": {
+      "type": "text",
+      "prompt": "Resource group name",
+      "default": ""
+    },
+    "location": {
+      "type": "text",
+      "prompt": "Azure region",
+      "default": "southeastasia"
+    }
+  }
+}

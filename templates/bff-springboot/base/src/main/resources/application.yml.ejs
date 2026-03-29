@@ -1,0 +1,33 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: <%= projectName %>
+<% if (authPattern === 'OAuth2 + Azure AD') { %>
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${AZURE_AD_ISSUER_URI}
+<% } %>
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      downstream:
+        registerHealthIndicator: true
+        failureRateThreshold: 50
+        waitDurationInOpenState: 30s
+        slidingWindowSize: 10
+
+logging:
+  level:
+    root: INFO
+    <%= packageName %>: DEBUG

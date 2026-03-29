@@ -1,0 +1,42 @@
+{
+  "name": "backend-springboot",
+  "displayName": "Spring Boot Backend Service",
+  "category": "backend",
+  "version": "1.0.0",
+  "runtime": "java",
+  "variables": {
+    "groupId": {
+      "type": "text",
+      "prompt": "Group ID",
+      "default": "com.company",
+      "placeholder": "com.company"
+    },
+    "javaVersion": {
+      "type": "select",
+      "prompt": "Java version",
+      "choices": ["21", "17"],
+      "default": "21"
+    },
+    "springBootVersion": {
+      "type": "text",
+      "prompt": "Spring Boot version",
+      "default": "3.5.13"
+    }
+  },
+  "prompts": [
+    {
+      "name": "authPattern",
+      "type": "select",
+      "message": "Authentication pattern",
+      "choices": ["OAuth2 + Azure AD", "JWT", "None"]
+    },
+    {
+      "name": "messaging",
+      "type": "select",
+      "message": "Message broker",
+      "choices": ["Azure Service Bus", "None"]
+    }
+  ],
+  "compatibleLayers": ["azure-sql", "azure-infra", "ci-pipeline"],
+  "postCreate": []
+}

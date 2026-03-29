@@ -1,0 +1,28 @@
+{
+  "name": "forge-cli",
+  "version": "0.1.0",
+  "description": "Project scaffolding CLI for standardized service generation",
+  "type": "module",
+  "bin": {
+    "forge": "./bin/forge.js"
+  },
+  "scripts": {
+    "start": "node bin/forge.js",
+    "lint": "eslint src/",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@clack/prompts": "^0.9.1",
+    "commander": "^14.0.3",
+    "deepmerge": "^4.3.1",
+    "ejs": "^3.1.10",
+    "fs-extra": "^11.3.4",
+    "yaml": "^2.7.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

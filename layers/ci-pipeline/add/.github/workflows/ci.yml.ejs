@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+<% if (runtime === 'java') { %>
+
+      - name: Set up JDK <%= javaVersion %>
+        uses: actions/setup-java@v4
+        with:
+          java-version: '<%= javaVersion %>'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build
+        run: mvn clean compile -B
+
+      - name: Test
+        run: mvn test -B
+
+      - name: Package
+        run: mvn package -DskipTests -B
+<% } else { %>
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+<% } %>
+<% if (acrName) { %>
+
+      - name: Build Docker image
+        if: github.ref == 'refs/heads/main'
+        run: docker build -t <%= projectName %>:${{ github.sha }} .
+
+      - name: Login to ACR
+        if: github.ref == 'refs/heads/main'
+        uses: azure/docker-login@v2
+        with:
+          login-server: <%= acrName %>.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Push to ACR
+        if: github.ref == 'refs/heads/main'
+        run: |
+          docker tag <%= projectName %>:${{ github.sha }} <%= acrName %>.azurecr.io/<%= projectName %>:${{ github.sha }}
+          docker tag <%= projectName %>:${{ github.sha }} <%= acrName %>.azurecr.io/<%= projectName %>:latest
+          docker push <%= acrName %>.azurecr.io/<%= projectName %>:${{ github.sha }}
+          docker push <%= acrName %>.azurecr.io/<%= projectName %>:latest
+<% } %>

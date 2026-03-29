@@ -1,0 +1,24 @@
+{
+  "name": "frontend-nextjs",
+  "displayName": "React + Next.js (SSR)",
+  "category": "frontend",
+  "version": "1.0.0",
+  "runtime": "node",
+  "variables": {},
+  "prompts": [
+    {
+      "name": "authPattern",
+      "type": "select",
+      "message": "Authentication pattern",
+      "choices": ["Azure AD (NextAuth + MSAL)", "None"]
+    },
+    {
+      "name": "uiLibrary",
+      "type": "select",
+      "message": "UI library",
+      "choices": ["Tailwind CSS", "None"]
+    }
+  ],
+  "compatibleLayers": ["azure-infra", "ci-pipeline"],
+  "postCreate": []
+}

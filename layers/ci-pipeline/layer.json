@@ -1,0 +1,16 @@
+{
+  "name": "ci-pipeline",
+  "displayName": "CI/CD Pipeline",
+  "variables": {
+    "ciPlatform": {
+      "type": "choice",
+      "prompt": "CI/CD platform",
+      "options": ["GitHub Actions", "Azure DevOps"]
+    },
+    "acrName": {
+      "type": "text",
+      "prompt": "Azure Container Registry name",
+      "default": ""
+    }
+  }
+}

@@ -1,0 +1,103 @@
+targetScope = 'resourceGroup'
+
+param location string = '<%= location %>'
+param appName string = '<%= projectName %>'
+param containerImage string
+param containerPort int = 8080
+
+resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
+  name: '${appName}-logs'
+  location: location
+  properties: {
+    sku: { name: 'PerGB2018' }
+    retentionInDays: 30
+  }
+}
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: '${appName}-insights'
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logAnalytics.id
+  }
+}
+<% if (deployTarget === 'Azure Container Apps') { %>
+
+resource environment 'Microsoft.App/managedEnvironments@2023-11-02-preview' = {
+  name: '${appName}-env'
+  location: location
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logAnalytics.properties.customerId
+        sharedKey: logAnalytics.listKeys().primarySharedKey
+      }
+    }
+  }
+}
+
+resource containerApp 'Microsoft.App/containerApps@2023-11-02-preview' = {
+  name: appName
+  location: location
+  properties: {
+    managedEnvironmentId: environment.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: containerPort
+      }
+    }
+    template: {
+      containers: [
+        {
+          name: appName
+          image: containerImage
+          resources: {
+            cpu: json('0.5')
+            memory: '1Gi'
+          }
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 3
+      }
+    }
+  }
+}
+
+output fqdn string = containerApp.properties.configuration.ingress.fqdn
+<% } else if (deployTarget === 'Azure App Service') { %>
+
+resource appServicePlan 'Microsoft.Web/serverfarms@2022-09-01' = {
+  name: '${appName}-plan'
+  location: location
+  sku: {
+    name: 'B1'
+    tier: 'Basic'
+  }
+  properties: {
+    reserved: true
+  }
+}
+
+resource webApp 'Microsoft.Web/sites@2022-09-01' = {
+  name: appName
+  location: location
+  properties: {
+    serverFarmId: appServicePlan.id
+    siteConfig: {
+      linuxFxVersion: 'DOCKER|${containerImage}'
+      appSettings: [
+        { name: 'WEBSITES_PORT', value: '${containerPort}' }
+        { name: 'APPINSIGHTS_INSTRUMENTATIONKEY', value: appInsights.properties.InstrumentationKey }
+      ]
+    }
+  }
+}
+
+output url string = 'https://${webApp.properties.defaultHostName}'
+<% } %>

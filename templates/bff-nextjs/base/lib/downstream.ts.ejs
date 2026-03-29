@@ -1,0 +1,28 @@
+type RequestOptions = {
+  method?: string;
+  body?: unknown;
+  headers?: Record<string, string>;
+};
+
+export async function downstream(
+  baseUrl: string,
+  path: string,
+  options: RequestOptions = {},
+) {
+  const url = `${baseUrl}${path}`;
+  const res = await fetch(url, {
+    method: options.method || 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Source': '<%= projectName %>',
+      ...options.headers,
+    },
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  if (!res.ok) {
+    throw new Error(`Downstream error: ${res.status} ${res.statusText}`);
+  }
+
+  return res.json();
+}
