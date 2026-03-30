@@ -91,8 +91,8 @@ function mergeXml(base, overlay) {
 
   if (!overlayDeps || overlayDeps.length === 0) return base;
 
-  // Find the closing </dependencies> tag in the base and insert before it
-  const insertPoint = base.lastIndexOf('</dependencies>');
+  // Find the FIRST closing </dependencies> tag (main deps, not dependencyManagement)
+  const insertPoint = base.indexOf('</dependencies>');
   if (insertPoint === -1) {
     // No dependencies block — insert one before </project>
     const projectClose = base.lastIndexOf('</project>');
