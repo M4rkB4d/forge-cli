@@ -4,6 +4,17 @@ server:
 spring:
   application:
     name: <%= projectName %>
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
 <% if (authPattern === 'OAuth2 + Azure AD') { %>
   security:
     oauth2:

@@ -1,0 +1,36 @@
+package <%= packageName %>.fixture;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * Centralized test data factory. Add builder methods for each domain entity.
+ *
+ * <p>Usage:
+ * <pre>
+ *   var account = TestDataFactory.anAccount().build();
+ *   var account = TestDataFactory.anAccount().withStatus("FROZEN").build();
+ * </pre>
+ */
+public final class TestDataFactory {
+
+    private TestDataFactory() {}
+
+    // --- Add entity builder methods here as features are implemented ---
+    // Example:
+    // public static AccountBuilder anAccount() { return new AccountBuilder(); }
+
+    /**
+     * Generate a deterministic UUID for test reproducibility.
+     */
+    public static UUID testId(int seed) {
+        return UUID.nameUUIDFromBytes(("test-" + seed).getBytes());
+    }
+
+    /**
+     * Generate a test timestamp.
+     */
+    public static Instant testTimestamp() {
+        return Instant.parse("2026-01-15T10:30:00Z");
+    }
+}

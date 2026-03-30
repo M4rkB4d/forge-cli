@@ -1,0 +1,43 @@
+import axios, { type AxiosInstance, type AxiosError } from 'axios';
+import http from 'http';
+import https from 'https';
+
+interface ClientOptions {
+  baseURL: string;
+  timeout?: number;
+}
+
+export function createClient(serviceName: string, options: ClientOptions): AxiosInstance {
+  const client = axios.create({
+    baseURL: options.baseURL,
+    timeout: options.timeout ?? 5000,
+    headers: { 'Content-Type': 'application/json' },
+    httpAgent: new http.Agent({ keepAlive: true, maxSockets: 50 }),
+    httpsAgent: new https.Agent({ keepAlive: true, maxSockets: 50 }),
+  });
+
+  // Request interceptor — inject correlation ID
+  client.interceptors.request.use((config) => {
+    const correlationId = config.headers?.['X-Correlation-Id'];
+    if (correlationId) {
+      config.headers.set('X-Correlation-Id', correlationId);
+    }
+    return config;
+  });
+
+  // Response interceptor — normalize errors
+  client.interceptors.response.use(
+    (response) => response,
+    (error: AxiosError) => {
+      const status = error.response?.status;
+      const data = error.response?.data;
+
+      // Log downstream failures (logger injected at route level)
+      console.error(`[${serviceName}] ${error.config?.method?.toUpperCase()} ${error.config?.url} → ${status ?? 'NETWORK_ERROR'}`);
+
+      return Promise.reject(error);
+    }
+  );
+
+  return client;
+}

@@ -26,7 +26,9 @@ export function writeProject(files, outputDir, options = {}) {
 
   console.log(`\n  Created ${count} files in ${outputDir}\n`);
 
-  if (options.git !== false) {
+  if (options.existingRepo) {
+    commitScaffold(outputDir);
+  } else if (options.git !== false) {
     initGit(outputDir);
   }
 
@@ -46,6 +48,19 @@ function initGit(dir) {
     console.log('  Git initialized with initial commit');
   } catch {
     console.log('  Git init skipped (git not available or error)');
+  }
+}
+
+function commitScaffold(dir) {
+  try {
+    execSync('git add -A', { cwd: dir, stdio: 'pipe' });
+    execSync('git commit -m "Scaffold project via forge init"', {
+      cwd: dir,
+      stdio: 'pipe',
+    });
+    console.log('  Scaffold committed to existing repository');
+  } catch {
+    console.log('  Git commit skipped (nothing to commit or git error)');
   }
 }
 

@@ -1,0 +1,25 @@
+import { NextRequest } from 'next/server';
+import { handleApiError } from '@/lib/errors/error-response';
+import { getCorrelationId } from '@/lib/logging/correlation';
+import { logger } from '@/lib/logging/logger';
+
+// GET /api/example — replace with your feature routes
+export async function GET(request: NextRequest) {
+  const correlationId = getCorrelationId(request);
+  const log = logger.child({ correlationId, route: '/api/example' });
+
+  try {
+    log.info('Handling example request');
+
+    // Replace with your typed client call:
+    // const backendResponse = await exampleClient.list(correlationId);
+    // return Response.json(mapExampleResponse(backendResponse));
+
+    return Response.json({
+      message: 'Replace with your BFF logic',
+      correlationId,
+    });
+  } catch (error) {
+    return handleApiError(error, correlationId, log);
+  }
+}

@@ -1,0 +1,15 @@
+package <%= packageName %>.exception;
+
+import org.springframework.http.HttpStatus;
+
+public class ExternalServiceException extends BaseException {
+
+    private final String serviceName;
+
+    public ExternalServiceException(String serviceName, String message, Throwable cause) {
+        super(message, "SYS-002", HttpStatus.BAD_GATEWAY, cause);
+        this.serviceName = serviceName;
+    }
+
+    public String getServiceName() { return serviceName; }
+}

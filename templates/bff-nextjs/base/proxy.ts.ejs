@@ -1,11 +1,23 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
 
-export function proxy(request: NextRequest) {
-  const correlationId = request.headers.get('x-correlation-id') || uuidv4();
-  const response = NextResponse.next();
+export function middleware(request: NextRequest) {
+  const correlationId = request.headers.get('x-correlation-id') ?? crypto.randomUUID();
+
+  // Add correlation ID to request headers for route handlers
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-correlation-id', correlationId);
+
+  const response = NextResponse.next({
+    request: { headers: requestHeaders },
+  });
+
+  // Security headers
   response.headers.set('x-correlation-id', correlationId);
+  response.headers.set('x-content-type-options', 'nosniff');
+  response.headers.set('x-frame-options', 'DENY');
+  response.headers.set('strict-transport-security', 'max-age=63072000; includeSubDomains; preload');
+
   return response;
 }
 

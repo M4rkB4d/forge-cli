@@ -1,5 +1,6 @@
 package <%= packageName %>.controller;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -18,7 +19,8 @@ class HealthControllerTest {
     private MockMvc mockMvc;
 
     @Test
-    void healthEndpointReturnsUp() throws Exception {
+    @DisplayName("should return UP status when service is healthy")
+    void should_return_up_status_when_service_is_healthy() throws Exception {
         mockMvc.perform(get("/api/health"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.status").value("UP"))

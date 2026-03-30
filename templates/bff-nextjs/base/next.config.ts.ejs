@@ -1,8 +1,22 @@
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
-  // API-only BFF — no static pages
   output: 'standalone',
+
+  // Server-side packages that shouldn't be bundled
+  serverExternalPackages: ['pino', 'pino-pretty'],
+
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+        ],
+      },
+    ];
+  },
 };
 
 export default config;

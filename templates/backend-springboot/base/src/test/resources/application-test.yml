@@ -1,0 +1,9 @@
+# Test profile configuration
+spring:
+  application:
+    name: <%= projectName %>-test
+
+logging:
+  level:
+    root: WARN
+    <%= packageName %>: DEBUG

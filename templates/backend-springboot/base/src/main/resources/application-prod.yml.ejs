@@ -1,5 +1,23 @@
 server:
   port: ${PORT:8080}
+  shutdown: graceful
+
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:10}
+      connection-timeout: 5000
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 logging:
   level:

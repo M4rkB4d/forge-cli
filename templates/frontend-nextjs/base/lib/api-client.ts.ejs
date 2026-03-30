@@ -1,17 +1,19 @@
-const BFF_URL = process.env.BFF_URL || 'http://localhost:3000';
+import axios, { type AxiosError } from 'axios';
+import type { ApiErrorResponse } from '@/shared/types/api';
 
-export async function fetchFromBFF<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BFF_URL}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...init?.headers,
-    },
-  });
+export const apiClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_BFF_URL ?? '/api',
+  timeout: 15000,
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
+});
 
-  if (!res.ok) {
-    throw new Error(`BFF error: ${res.status} ${res.statusText}`);
-  }
-
-  return res.json();
-}
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<ApiErrorResponse>) => {
+    if (error.response?.status === 401) {
+      window.location.href = '/login?reason=session-expired';
+    }
+    return Promise.reject(error);
+  },
+);

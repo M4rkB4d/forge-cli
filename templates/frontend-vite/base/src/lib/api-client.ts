@@ -1,0 +1,19 @@
+import axios, { type AxiosError } from 'axios';
+import type { ApiErrorResponse } from '@/shared/types/api';
+
+export const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_BFF_URL ?? '/api',
+  timeout: 15000,
+  withCredentials: true,
+  headers: { 'Content-Type': 'application/json' },
+});
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<ApiErrorResponse>) => {
+    if (error.response?.status === 401) {
+      window.location.href = '/login?reason=session-expired';
+    }
+    return Promise.reject(error);
+  },
+);
