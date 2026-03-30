@@ -6,6 +6,22 @@ import { compose } from '../core/composer.js';
 import { writeProject } from '../core/writer.js';
 
 /**
+ * Converts a directory name into a valid npm/project name.
+ * "BFF_AdminHub" → "bff-admin-hub"
+ * "My Cool Project" → "my-cool-project"
+ * "already-valid" → "already-valid"
+ */
+function sanitizeName(raw) {
+  return raw
+    .replace(/([a-z])([A-Z])/g, '$1-$2')   // camelCase → camel-Case
+    .replace(/[_\s]+/g, '-')                // underscores/spaces → hyphens
+    .replace(/[^a-z0-9-]/gi, '')            // strip invalid chars
+    .replace(/-+/g, '-')                    // collapse multiple hyphens
+    .replace(/^-|-$/g, '')                  // trim leading/trailing hyphens
+    .toLowerCase();
+}
+
+/**
  * `forge init` — scaffold a template into an existing directory (e.g., a cloned empty repo).
  *
  * Key differences from `forge create`:
@@ -41,8 +57,12 @@ export async function initAction(opts) {
       }
     }
 
-    // Prompt for template + variables, passing directory name as default project name
-    const config = await promptUser({ name: dirName, ...opts });
+    // Sanitize directory name into a valid project name (lowercase, hyphens)
+    // e.g. "BFF_AdminHub" → "bff-admin-hub"
+    const sanitized = sanitizeName(dirName);
+
+    // Pass as defaultName so the prompter shows it as editable default, not a hard override
+    const config = await promptUser({ defaultName: sanitized, ...opts });
 
     const files = compose(config);
 

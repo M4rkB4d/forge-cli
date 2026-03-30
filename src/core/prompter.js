@@ -31,6 +31,7 @@ export async function promptUser(options = {}) {
   const projectName = options.name || await p.text({
     message: 'Project name',
     placeholder: 'my-service',
+    initialValue: options.defaultName || '',
     validate: (val) => {
       if (!val) return 'Required';
       if (!/^[a-z][a-z0-9-]*$/.test(val)) return 'Lowercase, hyphens, starts with letter';
@@ -132,5 +133,5 @@ async function collectPrompts(prompts) {
 }
 
 function toPascalCase(str) {
-  return str.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
+  return str.split(/[-_]+/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join('');
 }
