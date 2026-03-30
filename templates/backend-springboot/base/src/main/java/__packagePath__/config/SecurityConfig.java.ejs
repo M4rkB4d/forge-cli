@@ -1,4 +1,4 @@
-<% if (authPattern !== 'None') { %>
+<% if (authPattern && authPattern !== 'None') { %>
 package <%= packageName %>.config;
 
 import org.springframework.context.annotation.Bean;
