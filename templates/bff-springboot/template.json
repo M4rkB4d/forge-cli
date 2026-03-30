@@ -20,7 +20,7 @@
     "springBootVersion": {
       "type": "text",
       "prompt": "Spring Boot version",
-      "default": "4.0.5"
+      "default": "3.4.4"
     }
   },
   "prompts": [
