@@ -161,7 +161,7 @@ const configs = [
     verify: (dir) => {
       assertFile(dir, 'package.json');
       assertFile(dir, 'app/api/health/route.ts');
-      assertFile(dir, 'middleware.ts');
+      assertFile(dir, 'proxy.ts');
       assertNotContains(dir, 'package.json', 'react');
       assertNoAiTrace(dir);
     },
