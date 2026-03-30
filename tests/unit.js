@@ -208,7 +208,7 @@ console.log('╚═════════════════════�
     assert(pom.content.includes('flyway-core'), suite, 'XML merge adds Flyway dep');
     assert(pom.content.includes('spring-boot-starter-flyway'), suite, 'XML merge adds Flyway starter');
     assert(pom.content.includes('mssql-jdbc'), suite, 'XML merge adds MSSQL driver');
-    assert(pom.content.includes('spring-boot-starter-webmvc'), suite, 'XML merge preserves base deps');
+    assert(pom.content.includes('spring-boot-starter-web'), suite, 'XML merge preserves base deps');
 
     // Verify XML structure is still valid (has closing tags)
     assert(pom.content.includes('</dependencies>'), suite, 'XML merge preserves </dependencies> tag');
