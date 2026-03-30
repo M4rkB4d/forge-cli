@@ -14,21 +14,9 @@ import org.springframework.test.context.ActiveProfiles;
  *   <li>Test profile activation</li>
  * </ul>
  *
- * <p>When database is needed, extend with TestContainers:
- * <pre>
- * {@literal @}Testcontainers
- * class MyIntegrationTest extends BaseIntegrationTest {
- *     {@literal @}Container
- *     static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
- *
- *     {@literal @}DynamicPropertySource
- *     static void configureProperties(DynamicPropertyRegistry registry) {
- *         registry.add("spring.datasource.url", postgres::getJdbcUrl);
- *         registry.add("spring.datasource.username", postgres::getUsername);
- *         registry.add("spring.datasource.password", postgres::getPassword);
- *     }
- * }
- * </pre>
+ * <p>Uses H2 in-memory database via the test profile by default.
+ * When testing against a real database, override datasource properties
+ * using {@literal @}DynamicPropertySource.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
