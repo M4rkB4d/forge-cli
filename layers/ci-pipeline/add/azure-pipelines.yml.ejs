@@ -1,0 +1,71 @@
+<% if (ciPlatform === 'Azure DevOps') { %>
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+
+pr:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+<% if (runtime === 'java') { %>
+
+steps:
+  - task: JavaToolInstaller@0
+    inputs:
+      versionSpec: '<%= javaVersion %>'
+      jdkArchitectureOption: 'x64'
+      jdkSourceOption: 'PreInstalled'
+
+  - script: mvn clean compile -B
+    displayName: 'Build'
+
+  - script: mvn test -B
+    displayName: 'Test'
+
+  - task: PublishTestResults@2
+    inputs:
+      testResultsFormat: 'JUnit'
+      testResultsFiles: '**/surefire-reports/TEST-*.xml'
+    condition: always()
+
+  - script: mvn package -DskipTests -B
+    displayName: 'Package'
+<% } else { %>
+
+steps:
+  - task: NodeTool@0
+    inputs:
+      versionSpec: '24.x'
+
+  - script: npm ci
+    displayName: 'Install dependencies'
+
+  - script: npm run lint
+    displayName: 'Lint'
+
+  - script: npm test
+    displayName: 'Test'
+
+  - script: npm run build
+    displayName: 'Build'
+<% } %>
+<% if (acrName) { %>
+
+  - task: Docker@2
+    displayName: 'Build and push Docker image'
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    inputs:
+      containerRegistry: '<%= acrName %>'
+      repository: '<%= projectName %>'
+      command: 'buildAndPush'
+      Dockerfile: '**/Dockerfile'
+      tags: |
+        $(Build.BuildId)
+        latest
+<% } %>
+<% } %>

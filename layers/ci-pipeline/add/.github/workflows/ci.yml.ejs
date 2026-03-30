@@ -1,3 +1,4 @@
+<% if (ciPlatform === 'GitHub Actions') { %>
 name: CI
 
 on:
@@ -70,4 +71,5 @@ jobs:
           docker tag <%= projectName %>:${{ github.sha }} <%= acrName %>.azurecr.io/<%= projectName %>:latest
           docker push <%= acrName %>.azurecr.io/<%= projectName %>:${{ github.sha }}
           docker push <%= acrName %>.azurecr.io/<%= projectName %>:latest
+<% } %>
 <% } %>
