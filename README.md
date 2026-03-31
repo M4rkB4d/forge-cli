@@ -12,7 +12,7 @@ Project scaffolding tool that generates production-grade, org-standard starter p
 
 ```bash
 # Clone the repo
-git clone https://github.com/your-org/forge-cli.git
+git clone https://github.com/M4rkB4d/forge-cli.git
 cd forge-cli
 npm install
 
@@ -33,6 +33,9 @@ forge create my-service
 
 # Preview what would be generated (no files written)
 forge create --dry-run
+
+# Scaffold into an existing directory (e.g., a cloned empty repo)
+forge init
 
 # List all available templates and add-ons
 forge list
@@ -96,7 +99,9 @@ Once you confirm, Forge generates the project, initializes git, and installs dep
 | Resilience4j | 2.4.0 (BFF only) |
 | springdoc-openapi | 3.0.2 |
 | Flyway | via `spring-boot-starter-flyway` (azure-sql layer) |
-| MSAL4J | BOM-managed (OAuth2 auth) |
+| logstash-logback-encoder | 9.0 |
+| Testcontainers | 2.0.4 |
+| MSAL4J | 1.24.0 (OAuth2 auth) |
 
 ### Node.js Stack
 
@@ -110,7 +115,7 @@ Once you confirm, Forge generates the project, initializes git, and installs dep
 | Tailwind CSS | 4.2.2 (optional) |
 | MSAL Browser | 5.6.2 (Vite auth) |
 | MSAL Node | 5.1.1 (Next.js / Express auth) |
-| Axios | 1.14.0 |
+| Axios | 1.14.1 |
 | Vitest | 4.1.2 |
 | ESLint | 9.x |
 
@@ -122,7 +127,7 @@ Layers are optional features that get merged into your generated project:
 |-------|-------------|
 | `azure-sql` | Azure SQL datasource config, Flyway migrations, JPA dependencies (Spring Boot only) |
 | `azure-infra` | Bicep infrastructure-as-code files for Azure deployment |
-| `ci-pipeline` | GitHub Actions CI/CD workflow (`.github/workflows/ci.yml`) |
+| `ci-pipeline` | CI/CD workflow — GitHub Actions (`.github/workflows/ci.yml`) or Azure DevOps (`azure-pipelines.yml`) |
 
 Not all layers are compatible with all templates. The CLI only shows layers that work with your chosen template.
 
@@ -139,6 +144,19 @@ Options:
   --dry-run             Show what files would be created without writing anything
 ```
 
+```
+forge init
+
+Options:
+  -t, --template <id>   Skip the template selection prompt
+  -o, --output <dir>    Target directory (default: current directory)
+  --no-git              Skip git commit
+  --no-install          Skip dependency installation
+  --dry-run             Preview files without writing
+```
+
+Use `forge init` when you've already cloned an empty repo and want to scaffold into it. It detects `.git/` and commits the scaffold into the existing repository instead of running `git init`.
+
 ## Generated Project Structure
 
 ### Spring Boot Backend (example: `order-service`)
@@ -147,6 +165,7 @@ Options:
 order-service/
   pom.xml
   Dockerfile
+  .dockerignore
   .gitignore
   src/
     main/
@@ -181,6 +200,7 @@ admin-portal/
   tsconfig.json
   vite.config.ts
   Dockerfile
+  .dockerignore
   .gitignore
   src/
     app/
@@ -229,7 +249,7 @@ The `groupId` (e.g., `com.company`) is set during the prompts for Java templates
 # Quick smoke test
 node tests/smoke.js
 
-# Unit + integration tests (151 tests)
+# Unit + integration tests (154 tests)
 node tests/unit.js
 
 # Full generation + build verification (requires Java + Maven)
