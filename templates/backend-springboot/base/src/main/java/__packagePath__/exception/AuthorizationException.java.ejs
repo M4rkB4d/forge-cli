@@ -1,0 +1,8 @@
+package <%= packageName %>.exception;
+
+public class AuthorizationException extends BaseException {
+
+    public AuthorizationException(String errorCode, String message) {
+        super(errorCode, 403, message);
+    }
+}

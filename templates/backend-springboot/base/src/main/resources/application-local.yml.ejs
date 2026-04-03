@@ -1,28 +1,16 @@
-server:
-  port: 8080
-
 spring:
-  application:
-    name: <%= projectName %>
   datasource:
-    url: jdbc:h2:mem:<%= projectName %>;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
+    url: jdbc:sqlserver://localhost:1433;databaseName=<%= projectName %>;encrypt=false
     username: sa
-    password:
-  jpa:
-    hibernate:
-      ddl-auto: create-drop
-    show-sql: true
+    password: ${DB_PASSWORD:LocalDev123!}
   flyway:
-    enabled: false
-  h2:
-    console:
-      enabled: true
-      path: /h2-console
+    out-of-order: true
+<% if (messaging === 'Kafka') { %>
+  kafka:
+    bootstrap-servers: localhost:9092
+<% } %>
 
 logging:
   level:
-    root: INFO
-    <%= packageName %>: DEBUG
-    org.springframework.web: DEBUG
+    <%= groupId %>: DEBUG
     org.hibernate.SQL: DEBUG

@@ -1,0 +1,8 @@
+package <%= packageName %>.exception;
+
+public class DuplicateResourceException extends BaseException {
+
+    public DuplicateResourceException(String errorCode, String message) {
+        super(errorCode, 409, message);
+    }
+}

@@ -1,14 +1,8 @@
 package <%= packageName %>.exception;
 
-import org.springframework.http.HttpStatus;
-
 public class BusinessException extends BaseException {
 
-    public BusinessException(String message, String errorCode) {
-        super(message, errorCode, HttpStatus.UNPROCESSABLE_ENTITY);
-    }
-
-    public BusinessException(String message, String errorCode, HttpStatus status) {
-        super(message, errorCode, status);
+    public BusinessException(String errorCode, String message) {
+        super(errorCode, 422, message);
     }
 }

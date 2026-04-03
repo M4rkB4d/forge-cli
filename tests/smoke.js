@@ -1,6 +1,6 @@
 import { compose } from '../src/core/composer.js';
 
-// Test 1: Spring Boot backend with no layers
+// Test 1: Spring Boot backend with no layers (OAuth2 + Azure AD)
 console.log('=== Test 1: Spring Boot Backend (no layers) ===');
 try {
   const files = compose({
@@ -12,8 +12,6 @@ try {
       packageName: 'com.bank.orders.orderservice',
       packagePath: 'com/bank/orders/orderservice',
       artifactName: 'orderservice',
-      javaVersion: '21',
-      springBootVersion: '4.0.5',
       authPattern: 'OAuth2 + Azure AD',
       messaging: 'None',
     },
@@ -31,12 +29,22 @@ try {
     '.gitignore',
     'README.md',
     'src/main/java/com/bank/orders/orderservice/OrderServiceApplication.java',
-    'src/main/java/com/bank/orders/orderservice/controller/HealthController.java',
     'src/main/java/com/bank/orders/orderservice/config/SecurityConfig.java',
+    'src/main/java/com/bank/orders/orderservice/config/OpenApiConfig.java',
+    'src/main/java/com/bank/orders/orderservice/config/WebMvcConfig.java',
+    'src/main/java/com/bank/orders/orderservice/config/JpaConfig.java',
     'src/main/java/com/bank/orders/orderservice/exception/GlobalExceptionHandler.java',
-    'src/main/java/com/bank/orders/orderservice/filter/CorrelationIdFilter.java',
+    'src/main/java/com/bank/orders/orderservice/exception/DuplicateResourceException.java',
+    'src/main/java/com/bank/orders/orderservice/exception/AuthorizationException.java',
+    'src/main/java/com/bank/orders/orderservice/util/CorrelationIdFilter.java',
+    'src/main/java/com/bank/orders/orderservice/util/MaskingUtil.java',
     'src/main/resources/application.yml',
+    'src/main/resources/application-sit.yml',
+    'src/main/resources/application-uat.yml',
+    'src/test/java/com/bank/orders/orderservice/config/TestContainersConfig.java',
+    'src/test/java/com/bank/orders/orderservice/controller/ActuatorHealthTest.java',
     'src/test/java/com/bank/orders/orderservice/OrderServiceApplicationTests.java',
+    'docs/adr/001-initial-architecture.md',
   ];
 
   let pass = true;
@@ -47,20 +55,70 @@ try {
     }
   }
 
-  // Verify EJS rendered correctly
+  // Verify old files are NOT generated
+  const mustNotExist = [
+    'src/main/java/com/bank/orders/orderservice/controller/HealthController.java',
+    'src/main/java/com/bank/orders/orderservice/filter/CorrelationIdFilter.java',
+    'src/main/java/com/bank/orders/orderservice/config/CorsConfig.java',
+    'src/main/java/com/bank/orders/orderservice/config/SwaggerConfig.java',
+  ];
+  for (const check of mustNotExist) {
+    if (paths.includes(check)) {
+      console.log(`  FAIL: Should NOT exist: ${check}`);
+      pass = false;
+    }
+  }
+
+  // Verify pom.xml content
   const pom = files.find(f => f.path === 'pom.xml');
   if (!pom.content.includes('com.bank.orders')) {
     console.log('  FAIL: pom.xml not rendered');
     pass = false;
   }
-  if (!pom.content.includes('spring-boot-starter-security')) {
-    console.log('  FAIL: OAuth2 security not in pom.xml');
+  if (!pom.content.includes('spring-boot-starter-webmvc')) {
+    console.log('  FAIL: pom.xml should use spring-boot-starter-webmvc (Boot 4)');
+    pass = false;
+  }
+  if (!pom.content.includes('spring-boot-starter-security-oauth2-resource-server')) {
+    console.log('  FAIL: OAuth2 resource server not in pom.xml');
+    pass = false;
+  }
+  if (!pom.content.includes('resilience4j-spring-boot4')) {
+    console.log('  FAIL: Resilience4j not in pom.xml');
+    pass = false;
+  }
+  if (pom.content.includes('h2database') || pom.content.includes('com.h2database')) {
+    console.log('  FAIL: H2 should not be in pom.xml');
+    pass = false;
+  }
+  if (!pom.content.includes('<java.version>21</java.version>')) {
+    console.log('  FAIL: Java version should be hardcoded to 21');
+    pass = false;
+  }
+  if (!pom.content.includes('4.0.5')) {
+    console.log('  FAIL: Spring Boot version should be 4.0.5');
     pass = false;
   }
 
-  const app = files.find(f => f.path === 'src/main/java/com/bank/orders/orderservice/OrderServiceApplication.java');
-  if (!app.content.includes('OrderServiceApplication')) {
-    console.log('  FAIL: Application class name not rendered');
+  // Verify Dockerfile uses Java 21 hardcoded
+  const dockerfile = files.find(f => f.path === 'Dockerfile');
+  if (!dockerfile.content.includes('temurin:21')) {
+    console.log('  FAIL: Dockerfile should use Java 21');
+    pass = false;
+  }
+  if (!dockerfile.content.includes('appuser')) {
+    console.log('  FAIL: Dockerfile should have non-root user');
+    pass = false;
+  }
+
+  // Verify SecurityConfig has JWT converter for OAuth2
+  const secConfig = files.find(f => f.path.includes('SecurityConfig'));
+  if (!secConfig.content.includes('jwtAuthConverter')) {
+    console.log('  FAIL: SecurityConfig missing JWT auth converter');
+    pass = false;
+  }
+  if (!secConfig.content.includes('@EnableMethodSecurity')) {
+    console.log('  FAIL: SecurityConfig missing @EnableMethodSecurity');
     pass = false;
   }
 
@@ -143,8 +201,6 @@ try {
       packageName: 'com.bank.users.userservice',
       packagePath: 'com/bank/users/userservice',
       artifactName: 'userservice',
-      javaVersion: '21',
-      springBootVersion: '4.0.5',
       authPattern: 'None',
       messaging: 'None',
       dbName: 'userdb',
@@ -161,20 +217,20 @@ try {
     console.log('  FAIL: Migration file not added from layer');
   }
 
-  // Check pom.xml was merged with JPA deps
+  // Check pom.xml was merged with Key Vault dep from azure-sql layer
   const pom = files.find(f => f.path === 'pom.xml');
   if (pom && pom.content.includes('spring-boot-starter-data-jpa')) {
     console.log('  PASS');
   } else {
-    console.log('  FAIL: pom.xml not merged with azure-sql layer');
+    console.log('  FAIL: pom.xml missing JPA dep');
   }
 } catch (err) {
   console.log(`  ERROR: ${err.message}`);
   console.log(err.stack);
 }
 
-// Test 5: Auth=None skips SecurityConfig, Dockerfile uses correct Java version
-console.log('\n=== Test 5: authPattern=None + Java 17 ===');
+// Test 5: authPattern=None — SecurityConfig still renders, Dockerfile uses Java 21
+console.log('\n=== Test 5: authPattern=None ===');
 try {
   const files = compose({
     templateId: 'backend-springboot',
@@ -185,8 +241,6 @@ try {
       packageName: 'com.bank.internal.internalsvc',
       packagePath: 'com/bank/internal/internalsvc',
       artifactName: 'internalsvc',
-      javaVersion: '17',
-      springBootVersion: '4.0.5',
       authPattern: 'None',
       messaging: 'None',
     },
@@ -194,16 +248,80 @@ try {
   });
 
   let pass = true;
+
+  // SecurityConfig should ALWAYS exist now (security is non-negotiable)
   const secConfig = files.find(f => f.path.includes('SecurityConfig'));
-  if (secConfig) {
-    console.log('  FAIL: SecurityConfig should be skipped when auth=None');
+  if (!secConfig) {
+    console.log('  FAIL: SecurityConfig should always exist');
+    pass = false;
+  } else if (secConfig.content.includes('jwtAuthConverter')) {
+    console.log('  FAIL: SecurityConfig should NOT have JWT converter when auth=None');
     pass = false;
   }
+
+  // Dockerfile should always use Java 21 (hardcoded)
   const dockerfile = files.find(f => f.path === 'Dockerfile');
-  if (!dockerfile || !dockerfile.content.includes('temurin:17')) {
-    console.log('  FAIL: Dockerfile should use javaVersion=17');
+  if (!dockerfile || !dockerfile.content.includes('temurin:21')) {
+    console.log('  FAIL: Dockerfile should use Java 21');
     pass = false;
   }
+
+  // No H2 anywhere
+  const allContent = files.map(f => f.content).join('\n');
+  if (allContent.includes('com.h2database') || allContent.includes('H2Dialect') || allContent.includes('h2:mem')) {
+    console.log('  FAIL: H2 references found — should be SQL Server only');
+    pass = false;
+  }
+
+  if (pass) console.log('  PASS');
+} catch (err) {
+  console.log(`  ERROR: ${err.message}`);
+  console.log(err.stack);
+}
+
+// Test 6: Kafka messaging option
+console.log('\n=== Test 6: Kafka Messaging ===');
+try {
+  const files = compose({
+    templateId: 'backend-springboot',
+    variables: {
+      projectName: 'event-service',
+      className: 'EventService',
+      groupId: 'com.bank.events',
+      packageName: 'com.bank.events.eventservice',
+      packagePath: 'com/bank/events/eventservice',
+      artifactName: 'eventservice',
+      authPattern: 'JWT',
+      messaging: 'Kafka',
+    },
+    layers: [],
+  });
+
+  let pass = true;
+
+  const pom = files.find(f => f.path === 'pom.xml');
+  if (!pom.content.includes('spring-boot-starter-kafka')) {
+    console.log('  FAIL: pom.xml should include spring-boot-starter-kafka');
+    pass = false;
+  }
+  if (pom.content.includes('servicebus')) {
+    console.log('  FAIL: pom.xml should NOT include Service Bus when messaging=Kafka');
+    pass = false;
+  }
+
+  const appYml = files.find(f => f.path === 'src/main/resources/application.yml');
+  if (!appYml.content.includes('kafka')) {
+    console.log('  FAIL: application.yml should include Kafka config');
+    pass = false;
+  }
+
+  // JWT auth should have ROLE_ prefix (not APPROLE_)
+  const secConfig = files.find(f => f.path.includes('SecurityConfig'));
+  if (!secConfig.content.includes('ROLE_')) {
+    console.log('  FAIL: JWT auth should use ROLE_ prefix');
+    pass = false;
+  }
+
   if (pass) console.log('  PASS');
 } catch (err) {
   console.log(`  ERROR: ${err.message}`);

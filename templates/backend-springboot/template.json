@@ -10,17 +10,6 @@
       "prompt": "Group ID",
       "default": "com.company",
       "placeholder": "com.company"
-    },
-    "javaVersion": {
-      "type": "select",
-      "prompt": "Java version",
-      "choices": ["25", "21", "17"],
-      "default": "25"
-    },
-    "springBootVersion": {
-      "type": "text",
-      "prompt": "Spring Boot version",
-      "default": "4.0.5"
     }
   },
   "prompts": [
@@ -34,7 +23,7 @@
       "name": "messaging",
       "type": "select",
       "message": "Message broker",
-      "choices": ["Azure Service Bus", "None"]
+      "choices": ["Kafka", "Azure Service Bus", "None"]
     }
   ],
   "compatibleLayers": ["azure-sql", "azure-infra", "ci-pipeline"],

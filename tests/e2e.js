@@ -36,8 +36,6 @@ const configs = [
         packageName: 'com.bank.orders.orderservice',
         packagePath: 'com/bank/orders/orderservice',
         artifactName: 'orderservice',
-        javaVersion: '21',
-        springBootVersion: '4.0.5',
         authPattern: 'OAuth2 + Azure AD',
         messaging: 'Azure Service Bus',
         runtime: 'java',
@@ -53,8 +51,8 @@ const configs = [
       assertFile(dir, '.github/workflows/ci.yml');
       assertContains(dir, 'pom.xml', 'spring-boot-starter-security');
       assertContains(dir, 'pom.xml', 'spring-boot-starter-data-jpa');
-      assertContains(dir, 'pom.xml', 'msal4j');
-      assertContains(dir, 'pom.xml', 'spring-cloud-azure-starter-servicebus-jms');
+      assertContains(dir, 'pom.xml', 'active-directory');
+      assertContains(dir, 'pom.xml', 'spring-messaging-azure-servicebus');
       assertContains(dir, '.github/workflows/ci.yml', 'setup-java');
       assertNoAiTrace(dir);
     },
@@ -71,8 +69,6 @@ const configs = [
         packageName: 'com.bank.catalog.catalogservice',
         packagePath: 'com/bank/catalog/catalogservice',
         artifactName: 'catalogservice',
-        javaVersion: '17',
-        springBootVersion: '4.0.5',
         authPattern: 'None',
         messaging: 'None',
         runtime: 'java',
@@ -82,10 +78,12 @@ const configs = [
     verify: (dir) => {
       assertFile(dir, 'pom.xml');
       assertFile(dir, 'Dockerfile');
-      assertNotContains(dir, 'pom.xml', 'spring-boot-starter-security');
+      // Security is always included (security headers even with no auth)
+      assertContains(dir, 'pom.xml', 'spring-boot-starter-security');
+      assertNotContains(dir, 'pom.xml', 'oauth2-resource-server');
       assertNotContains(dir, 'pom.xml', 'servicebus');
-      assertNoFile(dir, 'src/main/java/com/bank/catalog/catalogservice/config/SecurityConfig.java');
-      assertContains(dir, 'Dockerfile', 'temurin:17');
+      assertFile(dir, 'src/main/java/com/bank/catalog/catalogservice/config/SecurityConfig.java');
+      assertContains(dir, 'Dockerfile', 'temurin:21');
       assertNoAiTrace(dir);
     },
     build: buildJava,
@@ -101,8 +99,6 @@ const configs = [
         packageName: 'com.bank.gateway.apigateway',
         packagePath: 'com/bank/gateway/apigateway',
         artifactName: 'apigateway',
-        javaVersion: '21',
-        springBootVersion: '4.0.5',
         authPattern: 'JWT',
         runtime: 'java',
       },

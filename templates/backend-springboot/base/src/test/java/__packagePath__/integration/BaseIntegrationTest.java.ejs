@@ -1,25 +1,14 @@
 package <%= packageName %>.integration;
 
+import <%= packageName %>.config.TestContainersConfig;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
-/**
- * Base class for integration tests.
- *
- * <p>Provides:
- * <ul>
- *   <li>Full Spring context</li>
- *   <li>MockMvc for HTTP testing</li>
- *   <li>Test profile activation</li>
- * </ul>
- *
- * <p>Uses H2 in-memory database via the test profile by default.
- * When testing against a real database, override datasource properties
- * using {@literal @}DynamicPropertySource.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(TestContainersConfig.class)
 public abstract class BaseIntegrationTest {
 }

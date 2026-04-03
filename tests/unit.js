@@ -186,8 +186,6 @@ console.log('╚═════════════════════�
       authPattern: 'None',
       messaging: 'None',
       runtime: 'java',
-      javaVersion: '25',
-      springBootVersion: '4.0.5',
     },
     layers: ['azure-sql'],
   });
@@ -195,7 +193,7 @@ console.log('╚═════════════════════�
   const appYml = yamlBase.find(f => f.path.includes('application.yml') && !f.path.includes('-'));
   assert(appYml !== undefined, suite, 'application.yml exists after azure-sql merge');
   if (appYml) {
-    assert(appYml.content.includes('datasource'), suite, 'YAML merge adds datasource config');
+    assert(appYml.content.includes('keyvault'), suite, 'YAML merge adds Key Vault config from azure-sql layer');
     assert(appYml.content.includes('management'), suite, 'YAML merge preserves base actuator config');
     assert(appYml.content.includes('flyway'), suite, 'YAML merge adds flyway config');
   }
@@ -205,10 +203,11 @@ console.log('╚═════════════════════�
   assert(pom !== undefined, suite, 'pom.xml exists after azure-sql merge');
   if (pom) {
     assert(pom.content.includes('spring-boot-starter-data-jpa'), suite, 'XML merge preserves base JPA dep');
-    assert(pom.content.includes('flyway-core'), suite, 'XML merge preserves base Flyway dep');
-    assert(pom.content.includes('mssql-jdbc'), suite, 'XML merge adds MSSQL driver from layer');
-    assert(pom.content.includes('flyway-sqlserver'), suite, 'XML merge adds Flyway SQL Server from layer');
-    assert(pom.content.includes('spring-boot-starter-web'), suite, 'XML merge preserves base deps');
+    assert(pom.content.includes('spring-boot-starter-flyway'), suite, 'XML merge preserves base Flyway dep');
+    assert(pom.content.includes('mssql-jdbc'), suite, 'base pom includes MSSQL driver');
+    assert(pom.content.includes('flyway-sqlserver'), suite, 'base pom includes Flyway SQL Server');
+    assert(pom.content.includes('spring-boot-starter-webmvc'), suite, 'XML merge preserves base deps');
+    assert(pom.content.includes('spring-cloud-azure-starter-keyvault'), suite, 'XML merge adds Key Vault dep from azure-sql layer');
 
     // Verify XML structure is still valid (has closing tags)
     assert(pom.content.includes('</dependencies>'), suite, 'XML merge preserves </dependencies> tag');
@@ -228,8 +227,6 @@ console.log('╚═════════════════════�
       authPattern: 'OAuth2 + Azure AD',
       messaging: 'Azure Service Bus',
       runtime: 'java',
-      javaVersion: '21',
-      springBootVersion: '4.0.5',
       ciPlatform: 'GitHub Actions',
       acrName: 'myacr',
       dbName: 'testdb',
@@ -272,8 +269,6 @@ console.log('╚═════════════════════�
       authPattern: 'None',
       messaging: 'None',
       runtime: 'java',
-      javaVersion: '25',
-      springBootVersion: '4.0.5',
     },
     layers: [],
   });
@@ -288,9 +283,9 @@ console.log('╚═════════════════════�
       'package declaration uses interpolated packageName');
   }
 
-  // Check conditional file exclusion — SecurityConfig should NOT exist for auth=None
+  // SecurityConfig should ALWAYS exist (security is non-negotiable)
   const secConfig = javaFiles.find(f => f.path.includes('SecurityConfig'));
-  assert(secConfig === undefined, suite, 'SecurityConfig excluded when authPattern=None');
+  assert(secConfig !== undefined, suite, 'SecurityConfig always exists even when authPattern=None');
 
   // Check conditional file inclusion — SecurityConfig SHOULD exist for JWT
   const jwtFiles = compose({
@@ -305,8 +300,6 @@ console.log('╚═════════════════════�
       authPattern: 'JWT',
       messaging: 'None',
       runtime: 'java',
-      javaVersion: '25',
-      springBootVersion: '4.0.5',
     },
     layers: [],
   });
@@ -431,8 +424,6 @@ console.log('╚═════════════════════�
       authPattern: 'None',
       messaging: 'None',
       runtime: 'java',
-      javaVersion: '25',
-      springBootVersion: '4.0.5',
     },
     layers: [],
   });
@@ -648,8 +639,6 @@ console.log('╚═════════════════════�
       authPattern: 'None',
       messaging: 'None',
       runtime: 'java',
-      javaVersion: '25',
-      springBootVersion: '4.0.5',
     },
     layers: [],
   });
@@ -737,10 +726,10 @@ console.log('╚═════════════════════�
         packageName: 'com.test.compbe', packagePath: 'com/test/compbe',
         groupId: 'com.test', artifactName: 'compbe',
         authPattern: 'None', messaging: 'None',
-        runtime: 'java', javaVersion: '25', springBootVersion: '4.0.5',
+        runtime: 'java',
       },
       required: ['pom.xml', 'Dockerfile', 'application.yml', '.gitignore'],
-      requiredPatterns: ['Application.java', 'HealthController.java'],
+      requiredPatterns: ['Application.java', 'SecurityConfig.java'],
     },
     {
       id: 'bff-springboot',
@@ -748,7 +737,7 @@ console.log('╚═════════════════════�
         projectName: 'comp-bff-sb', className: 'CompBffSb',
         packageName: 'com.test.compbffsb', packagePath: 'com/test/compbffsb',
         groupId: 'com.test', artifactName: 'compbffsb',
-        authPattern: 'None', runtime: 'java', javaVersion: '25', springBootVersion: '4.0.5',
+        authPattern: 'None', runtime: 'java',
       },
       required: ['pom.xml', 'Dockerfile', 'application.yml'],
       requiredPatterns: ['Application.java', 'DownstreamClient.java', 'ResilienceConfig.java'],

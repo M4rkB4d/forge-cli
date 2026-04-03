@@ -6,10 +6,8 @@ const overlay = readFileSync('C:/Projects/forge-cli/layers/azure-sql/merge/pom.x
 
 // Simulate what EJS would produce
 const renderedBase = base
-  .replace(/<%= springBootVersion %>/g, '3.5.13')
   .replace(/<%= groupId %>/g, 'com.bank')
   .replace(/<%= projectName %>/g, 'test')
-  .replace(/<%= javaVersion %>/g, '21')
   .replace(/<%= className %>/g, 'Test')
   .replace(/<%[\s\S]*?%>/g, ''); // strip remaining EJS
 

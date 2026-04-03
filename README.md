@@ -5,8 +5,9 @@ Project scaffolding tool that generates production-grade, org-standard starter p
 ## Prerequisites
 
 - **Node.js** >= 18
-- **Java 17, 21, or 25** (for Spring Boot templates only)
-- **Maven** (for Spring Boot templates only)
+- **Java 21** (LTS — for Spring Boot templates)
+- **Maven 3.9+** (for Spring Boot templates)
+- **Docker** (for running tests — TestContainers uses SQL Server containers)
 
 ## Installation
 
@@ -56,7 +57,7 @@ The CLI walks you through a series of prompts:
    > my-service (lowercase, hyphens only, starts with a letter)
 
 4. Stack-specific options
-   > Java version, auth pattern, messaging, UI library, etc.
+   > Auth pattern, messaging, UI library, etc.
 
 5. Add-ons
    > Azure SQL, Azure Infrastructure (Bicep), CI/CD Pipeline
@@ -70,7 +71,7 @@ Once you confirm, Forge generates the project, initializes git, and installs dep
 
 | Template | Stack | Auth Options | Messaging Options |
 |----------|-------|-------------|-------------------|
-| `backend-springboot` | Spring Boot 4.0 + Java | OAuth2 + Azure AD, JWT, None | Azure Service Bus, None |
+| `backend-springboot` | Spring Boot 4.0.5 + Java 21 | OAuth2 + Azure AD, JWT, None | Kafka, Azure Service Bus, None |
 
 ### BFF (Backend-for-Frontend)
 
@@ -94,14 +95,14 @@ Once you confirm, Forge generates the project, initializes git, and installs dep
 | Dependency | Version |
 |-----------|---------|
 | Spring Boot | 4.0.5 |
-| Java | 17, 21, 25 (selectable) |
+| Java | 21 (LTS, hardcoded) |
 | Spring Cloud Azure | 7.1.0 |
-| Resilience4j | 2.4.0 (BFF only) |
+| Resilience4j | 2.4.0 |
 | springdoc-openapi | 3.0.2 |
-| Flyway | via `spring-boot-starter-flyway` (azure-sql layer) |
+| Flyway | via `spring-boot-starter-flyway` |
 | logstash-logback-encoder | 9.0 |
-| Testcontainers | 2.0.4 |
-| MSAL4J | 1.24.0 (OAuth2 auth) |
+| TestContainers | 2.0.4 |
+| JaCoCo | 0.8.14 |
 
 ### Node.js Stack
 
@@ -125,7 +126,7 @@ Layers are optional features that get merged into your generated project:
 
 | Layer | What It Adds |
 |-------|-------------|
-| `azure-sql` | Azure SQL datasource config, Flyway migrations, JPA dependencies (Spring Boot only) |
+| `azure-sql` | Azure Key Vault config for managed identity database access (Spring Boot only) |
 | `azure-infra` | Bicep infrastructure-as-code files for Azure deployment |
 | `ci-pipeline` | CI/CD workflow — GitHub Actions (`.github/workflows/ci.yml`) or Azure DevOps (`azure-pipelines.yml`) |
 
@@ -167,29 +168,52 @@ order-service/
   Dockerfile
   .dockerignore
   .gitignore
+  README.md
+  docs/
+    adr/
+      001-initial-architecture.md
   src/
     main/
       java/com/company/orderservice/
         OrderServiceApplication.java
-        controller/
-          HealthController.java
         config/
-          SecurityConfig.java        # only if auth != None
-        service/
-        model/
+          SecurityConfig.java          # always present (security headers, CORS)
+          JpaConfig.java               # auditing
+          OpenApiConfig.java           # Swagger/OpenAPI
+          WebMvcConfig.java            # Jackson 3 settings
+        domain/entity/
+          BaseEntity.java
+        exception/
+          BaseException.java
+          BusinessException.java
+          ResourceNotFoundException.java
+          DuplicateResourceException.java
+          AuthorizationException.java
+          ExternalServiceException.java
+          GlobalExceptionHandler.java
+        util/
+          CorrelationIdFilter.java
+          MaskingUtil.java
       resources/
         application.yml
+        application-local.yml
+        application-dev.yml
+        application-sit.yml
+        application-uat.yml
+        application-prod.yml
+        logback-spring.xml
         db/migration/
-          V1__init.sql               # only with azure-sql layer
+          V1__init.sql                 # only with azure-sql layer
     test/
       java/com/company/orderservice/
+        config/
+          TestContainersConfig.java    # SQL Server via Docker
         controller/
-          HealthControllerTest.java
-  .github/
-    workflows/
-      ci.yml                         # only with ci-pipeline layer
-  infra/
-    main.bicep                       # only with azure-infra layer
+          ActuatorHealthTest.java
+        integration/
+          BaseIntegrationTest.java
+      resources/
+        application-test.yml
 ```
 
 ### React + Vite SPA (example: `admin-portal`)
@@ -218,15 +242,16 @@ admin-portal/
 ```bash
 cd my-service
 
-# Spring Boot
-mvn spring-boot:run              # starts on :8080
-mvn test                         # run tests
+# Spring Boot — requires Docker for SQL Server
+docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStr0ngP@ss" -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+mvn test                           # runs with TestContainers (Docker required)
 
 # Node.js (Express, Vite, Next.js)
-npm run dev                      # starts dev server
-npm run build                    # production build
-npm test                         # run tests
-npm run lint                     # lint check
+npm run dev                        # starts dev server
+npm run build                      # production build
+npm test                           # run tests
+npm run lint                       # lint check
 ```
 
 ## Naming Conventions
@@ -246,16 +271,16 @@ The `groupId` (e.g., `com.company`) is set during the prompts for Java templates
 ## Running Tests
 
 ```bash
-# Quick smoke test
+# Quick smoke test (6 tests)
 node tests/smoke.js
 
-# Unit + integration tests (154 tests)
+# Unit + integration tests (~150 tests)
 node tests/unit.js
 
-# Full generation + build verification (requires Java + Maven)
+# Full generation + build verification (requires Java + Maven + Docker)
 node tests/e2e.js
 
-# Comprehensive matrix (129 tests across all template variants)
+# Comprehensive matrix (~130 tests across all template variants)
 node tests/comprehensive.js
 ```
 
@@ -264,8 +289,11 @@ node tests/comprehensive.js
 **`forge` command not found**
 Run `npm link` from the forge-cli directory.
 
-**Maven build fails with "version missing"**
-Spring Boot 4.0 has some starters not managed by the BOM. The templates handle this — make sure you're using `springBootVersion: 4.0.5` (the default).
+**Maven build fails**
+Ensure you're on Java 21+ and Maven 3.9+. The template enforces these via maven-enforcer-plugin.
+
+**Tests fail with "container" errors**
+Docker must be running. TestContainers uses it for SQL Server.
 
 **npm install fails on Next.js templates**
 Ensure you're on Node.js >= 18. Next.js 16 requires it.

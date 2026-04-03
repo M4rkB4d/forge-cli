@@ -1,6 +1,6 @@
 {
   "name": "azure-sql",
-  "displayName": "Azure SQL Database",
+  "displayName": "Azure SQL Database (Azure-specific config)",
   "variables": {
     "dbName": {
       "type": "text",
@@ -9,8 +9,6 @@
     }
   },
   "mergeStrategy": {
-    "pom.xml": "xml-append-dependencies",
-    "application.yml": "yaml-merge",
-    "package.json": "json-merge"
+    "application.yml": "yaml-merge"
   }
 }

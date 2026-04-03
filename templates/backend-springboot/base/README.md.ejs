@@ -1,14 +1,28 @@
 # <%= projectName %>
 
+Spring Boot 4.0.5 backend service scaffolded with [Forge CLI](https://github.com/example/forge-cli).
+
 ## Prerequisites
 
-- Java <%= javaVersion %>
+- Java 21 (LTS)
 - Maven 3.9+
+- Docker (for local SQL Server and TestContainers)
+<% if (messaging === 'Kafka') { %>- Apache Kafka (local: Docker Compose or Confluent Platform)
+<% } %>
 
-## Running locally
+## Quick Start
 
 ```bash
-./mvnw spring-boot:run -Dspring-boot.run.profiles=dev
+# Start SQL Server locally (Docker)
+docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=LocalDev123!" \
+  -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
+<% if (messaging === 'Kafka') { %>
+# Start Kafka locally (Docker)
+docker compose up -d kafka
+<% } %>
+
+# Run the application
+./mvnw spring-boot:run
 ```
 
 ## Building
@@ -17,13 +31,67 @@
 ./mvnw clean package
 ```
 
+## Running Tests
+
+```bash
+# Requires Docker (TestContainers starts SQL Server automatically)
+./mvnw test
+```
+
 ## Docker
 
 ```bash
 docker build -t <%= projectName %> .
-docker run -p 8080:8080 <%= projectName %>
+docker run -p 8080:8080 \
+  -e DATABASE_URL=jdbc:sqlserver://host:1433 \
+  -e DATABASE_USERNAME=sa \
+  -e DATABASE_PASSWORD=secret \
+  <%= projectName %>
 ```
 
-## API docs
+## API Documentation
 
-Swagger UI: http://localhost:8080/swagger-ui.html
+- Swagger UI: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
+- OpenAPI spec: [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
+
+## Environment Profiles
+
+| Profile | Purpose | Database |
+|---------|---------|----------|
+| `local` | Developer machine | SQL Server localhost:1433 |
+| `dev` | Shared development | SQL Server (env vars) |
+| `sit` | System integration testing | SQL Server (env vars) |
+| `uat` | User acceptance testing | SQL Server (env vars) |
+| `prod` | Production | SQL Server (env vars, Key Vault) |
+| `test` | Automated tests | SQL Server (TestContainers) |
+
+## Project Structure
+
+```
+src/main/java/<%= groupId.replace(/\./g, '/') %>/
+├── config/          # Spring configuration classes
+├── controller/      # REST controllers
+├── service/         # Business logic
+├── repository/      # Data access (Spring Data JPA)
+├── domain/
+│   ├── entity/      # JPA entities
+│   ├── enums/       # Domain enumerations
+│   └── event/       # Domain events
+├── dto/
+│   ├── request/     # Inbound DTOs
+│   └── response/    # Outbound DTOs
+├── exception/       # Exception hierarchy + global handler
+├── mapper/          # Entity <-> DTO mappers
+├── client/          # External service clients
+├── util/            # Utilities (CorrelationIdFilter, MaskingUtil)
+├── messaging/       # Message producers and consumers
+└── specification/   # JPA Specifications for dynamic queries
+```
+
+## Key Decisions
+
+- **Database:** SQL Server (Azure SQL in production)
+- **Auth:** <%= authPattern %>
+- **Messaging:** <%= messaging %>
+- **Observability:** OpenTelemetry + Logstash JSON logging
+- **Resilience:** Resilience4j (circuit breaker, retry, bulkhead)

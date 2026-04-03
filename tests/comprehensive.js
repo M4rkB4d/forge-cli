@@ -208,8 +208,6 @@ for (const combo of backendCombos) {
         packageName: 'com.test.testsvc',
         packagePath: 'com/test/testsvc',
         artifactName: 'testsvc',
-        javaVersion: '21',
-        springBootVersion: '4.0.5',
         authPattern: combo.authPattern,
         messaging: combo.messaging,
         runtime: 'java',
@@ -223,16 +221,20 @@ for (const combo of backendCombos) {
     const pom = fileContent(dir, 'pom.xml');
     const hasSecDep = pom.includes('spring-boot-starter-security');
     const hasOauth = pom.includes('oauth2-resource-server');
-    const hasMsal = pom.includes('msal4j');
-    const hasAsb = pom.includes('servicebus-jms');
-    const hasSecTest = pom.includes('spring-security-test');
+    const hasAzureAd = pom.includes('active-directory');
+    const hasAsb = pom.includes('spring-messaging-azure-servicebus');
+    const hasSecTest = pom.includes('security-test');
     const hasDepMgmt = pom.includes('spring-cloud-azure-dependencies');
 
+    // Security is always included (non-negotiable per bible)
+    assertContains(dir, 'pom.xml', 'spring-boot-starter-security', suite, 'Security dep always present');
+    assertFile(dir, 'src/main/java/com/test/testsvc/config/SecurityConfig.java', suite, 'SecurityConfig always exists');
+
     if (combo.authPattern === 'OAuth2 + Azure AD') {
-      if (hasSecDep && hasOauth && hasMsal && hasSecTest)
+      if (hasSecDep && hasOauth && hasAzureAd && hasSecTest)
         record(suite, 'OAuth2 deps in pom.xml', 'PASS');
       else
-        record(suite, 'OAuth2 deps in pom.xml', 'FAIL', `sec=${hasSecDep} oauth=${hasOauth} msal=${hasMsal}`);
+        record(suite, 'OAuth2 deps in pom.xml', 'FAIL', `sec=${hasSecDep} oauth=${hasOauth} azureAd=${hasAzureAd}`);
 
       // Check application.yml has OAuth2 config
       const appYml = fileContent(dir, 'src/main/resources/application.yml');
@@ -241,27 +243,23 @@ for (const combo of backendCombos) {
       else
         record(suite, 'OAuth2 config in application.yml', 'FAIL');
 
-      // SecurityConfig should exist with oauth2ResourceServer
-      assertFile(dir, 'src/main/java/com/test/testsvc/config/SecurityConfig.java', suite, 'SecurityConfig exists');
+      // SecurityConfig should have oauth2ResourceServer and APPROLE_ prefix
       assertContains(dir, 'src/main/java/com/test/testsvc/config/SecurityConfig.java', 'oauth2ResourceServer', suite, 'SecurityConfig has OAuth2');
     } else if (combo.authPattern === 'JWT') {
-      if (hasSecDep && !hasOauth && !hasMsal && hasSecTest)
+      // JWT also uses oauth2-resource-server starter (for JWT validation)
+      if (hasSecDep && hasOauth && !hasAzureAd && hasSecTest)
         record(suite, 'JWT deps in pom.xml', 'PASS');
       else
-        record(suite, 'JWT deps in pom.xml', 'FAIL', `sec=${hasSecDep} oauth=${hasOauth} msal=${hasMsal}`);
+        record(suite, 'JWT deps in pom.xml', 'FAIL', `sec=${hasSecDep} oauth=${hasOauth} azureAd=${hasAzureAd}`);
 
-      // SecurityConfig should exist without oauth2ResourceServer
-      assertFile(dir, 'src/main/java/com/test/testsvc/config/SecurityConfig.java', suite, 'SecurityConfig exists');
-      assertNotContains(dir, 'src/main/java/com/test/testsvc/config/SecurityConfig.java', 'oauth2ResourceServer', suite, 'SecurityConfig no OAuth2');
+      // SecurityConfig should have oauth2ResourceServer but use ROLE_ prefix (not APPROLE_)
+      assertContains(dir, 'src/main/java/com/test/testsvc/config/SecurityConfig.java', 'ROLE_', suite, 'SecurityConfig uses ROLE_ prefix for JWT');
     } else {
-      // authPattern = None
-      if (!hasSecDep && !hasOauth && !hasMsal && !hasSecTest)
-        record(suite, 'No security deps in pom.xml', 'PASS');
+      // authPattern = None — security headers still applied, but no OAuth2/JWT
+      if (hasSecDep && !hasOauth && !hasAzureAd)
+        record(suite, 'No OAuth2 deps in pom.xml (auth=None)', 'PASS');
       else
-        record(suite, 'No security deps in pom.xml', 'FAIL', `sec=${hasSecDep}`);
-
-      // SecurityConfig should NOT exist
-      assertNoFile(dir, 'src/main/java/com/test/testsvc/config/SecurityConfig.java', suite, 'SecurityConfig excluded');
+        record(suite, 'No OAuth2 deps in pom.xml (auth=None)', 'FAIL', `oauth=${hasOauth} azureAd=${hasAzureAd}`);
     }
 
     // Messaging checks
@@ -304,8 +302,6 @@ for (const combo of bffSpringCombos) {
         packageName: 'com.test.bfftest',
         packagePath: 'com/test/bfftest',
         artifactName: 'bfftest',
-        javaVersion: '21',
-        springBootVersion: '4.0.5',
         authPattern: combo.authPattern,
         runtime: 'java',
       },
@@ -591,8 +587,6 @@ console.log('╚═════════════════════�
         packageName: 'com.test.layersqltest',
         packagePath: 'com/test/layersqltest',
         artifactName: 'layersqltest',
-        javaVersion: '21',
-        springBootVersion: '4.0.5',
         authPattern: 'None',
         messaging: 'None',
         runtime: 'java',
@@ -606,21 +600,19 @@ console.log('╚═════════════════════�
     // pom.xml should have JPA + Flyway + SQL Server deps from merge
     const pom = fileContent(dir, 'pom.xml');
     const jpaOk = pom.includes('spring-boot-starter-data-jpa');
-    const flywayOk = pom.includes('flyway-core');
+    const flywayOk = pom.includes('spring-boot-starter-flyway');
     const sqlOk = pom.includes('mssql-jdbc');
     if (jpaOk && flywayOk && sqlOk)
       record(suite, 'pom.xml merge (JPA+Flyway+MSSQL)', 'PASS');
     else
       record(suite, 'pom.xml merge', 'FAIL', `jpa=${jpaOk} flyway=${flywayOk} sql=${sqlOk}`);
 
-    // application.yml should have datasource config with dbName
+    // application.yml should have Key Vault config (datasource no longer provided by azure-sql layer)
     const appYml = fileContent(dir, 'src/main/resources/application.yml');
-    if (appYml.includes('datasource') && appYml.includes('testdb'))
-      record(suite, 'application.yml merge (datasource+dbName)', 'PASS');
-    else if (appYml.includes('datasource'))
-      record(suite, 'application.yml merge (datasource present, dbName missing)', 'FAIL');
+    if (appYml.includes('keyvault'))
+      record(suite, 'application.yml merge (keyvault config)', 'PASS');
     else
-      record(suite, 'application.yml merge', 'FAIL', 'No datasource config');
+      record(suite, 'application.yml merge', 'FAIL', 'No keyvault config');
 
     // Migration file added
     assertFile(dir, 'src/main/resources/db/migration/V1__init.sql', suite, 'Migration file added');
@@ -644,8 +636,6 @@ console.log('╚═════════════════════�
         packageName: 'com.test.layercijava',
         packagePath: 'com/test/layercijava',
         artifactName: 'layercijava',
-        javaVersion: '21',
-        springBootVersion: '4.0.5',
         authPattern: 'None',
         messaging: 'None',
         runtime: 'java',
@@ -723,8 +713,6 @@ console.log('╚═════════════════════�
         packageName: 'com.test.layermulti',
         packagePath: 'com/test/layermulti',
         artifactName: 'layermulti',
-        javaVersion: '21',
-        springBootVersion: '4.0.5',
         authPattern: 'OAuth2 + Azure AD',
         messaging: 'Azure Service Bus',
         runtime: 'java',
@@ -742,7 +730,7 @@ console.log('╚═════════════════════�
     // Merges applied
     assertContains(dir, 'pom.xml', 'spring-boot-starter-data-jpa', suite, 'JPA dep merged');
     assertContains(dir, 'pom.xml', 'spring-boot-starter-security', suite, 'Security dep present');
-    assertContains(dir, 'pom.xml', 'servicebus-jms', suite, 'Service Bus dep present');
+    assertContains(dir, 'pom.xml', 'spring-messaging-azure-servicebus', suite, 'Service Bus dep present');
   } catch (err) {
     record(suite, 'generation', 'FAIL', err.message);
   }
@@ -769,8 +757,6 @@ const buildConfigs = [
         packageName: 'com.test.build.buildbefull',
         packagePath: 'com/test/build/buildbefull',
         artifactName: 'buildbefull',
-        javaVersion: '21',
-        springBootVersion: '4.0.5',
         authPattern: 'OAuth2 + Azure AD',
         messaging: 'Azure Service Bus',
         runtime: 'java',
@@ -781,7 +767,7 @@ const buildConfigs = [
     build: 'java',
   },
   {
-    name: 'backend-springboot/noauth-java17',
+    name: 'backend-springboot/noauth-bare',
     config: {
       templateId: 'backend-springboot',
       variables: {
@@ -791,8 +777,6 @@ const buildConfigs = [
         packageName: 'com.test.build.buildbebare',
         packagePath: 'com/test/build/buildbebare',
         artifactName: 'buildbebare',
-        javaVersion: '17',
-        springBootVersion: '4.0.5',
         authPattern: 'None',
         messaging: 'None',
         runtime: 'java',
@@ -812,8 +796,6 @@ const buildConfigs = [
         packageName: 'com.test.build.buildbffsb',
         packagePath: 'com/test/build/buildbffsb',
         artifactName: 'buildbffsb',
-        javaVersion: '21',
-        springBootVersion: '4.0.5',
         authPattern: 'JWT',
         runtime: 'java',
       },
@@ -1024,37 +1006,7 @@ console.log('\n╔════════════════════�
 console.log('║  SUITE 5: EDGE CASES                         ║');
 console.log('╚══════════════════════════════════════════════╝');
 
-// Java version 17 in Dockerfile
-{
-  const suite = 'edge/java17-dockerfile';
-  console.log(`\n--- ${suite} ---`);
-
-  const { dir } = generate({
-    templateId: 'backend-springboot',
-    variables: {
-      projectName: 'edge-java17',
-      className: 'EdgeJava17',
-      groupId: 'com.test',
-      packageName: 'com.test.edgejava17',
-      packagePath: 'com/test/edgejava17',
-      artifactName: 'edgejava17',
-      javaVersion: '17',
-      springBootVersion: '4.0.5',
-      authPattern: 'None',
-      messaging: 'None',
-      runtime: 'java',
-    },
-    layers: [],
-  });
-
-  const df = fileContent(dir, 'Dockerfile');
-  if (df.includes('temurin:17') && !df.includes('temurin:21'))
-    record(suite, 'Dockerfile uses Java 17', 'PASS');
-  else
-    record(suite, 'Dockerfile uses Java 17', 'FAIL');
-}
-
-// Java version 21 in Dockerfile
+// Java version hardcoded to 21 in Dockerfile (javaVersion no longer a variable)
 {
   const suite = 'edge/java21-dockerfile';
   console.log(`\n--- ${suite} ---`);
@@ -1068,8 +1020,6 @@ console.log('╚═════════════════════�
       packageName: 'com.test.edgejava21',
       packagePath: 'com/test/edgejava21',
       artifactName: 'edgejava21',
-      javaVersion: '21',
-      springBootVersion: '4.0.5',
       authPattern: 'None',
       messaging: 'None',
       runtime: 'java',
@@ -1078,10 +1028,10 @@ console.log('╚═════════════════════�
   });
 
   const df = fileContent(dir, 'Dockerfile');
-  if (df.includes('temurin:21') && !df.includes('temurin:17'))
-    record(suite, 'Dockerfile uses Java 21', 'PASS');
+  if (df.includes('temurin:21'))
+    record(suite, 'Dockerfile uses Java 21 (hardcoded)', 'PASS');
   else
-    record(suite, 'Dockerfile uses Java 21', 'FAIL');
+    record(suite, 'Dockerfile uses Java 21 (hardcoded)', 'FAIL');
 }
 
 // All layers stacked on one template
@@ -1099,8 +1049,6 @@ console.log('╚═════════════════════�
         packageName: 'com.test.edgealllayers',
         packagePath: 'com/test/edgealllayers',
         artifactName: 'edgealllayers',
-        javaVersion: '21',
-        springBootVersion: '4.0.5',
         authPattern: 'OAuth2 + Azure AD',
         messaging: 'Azure Service Bus',
         runtime: 'java',

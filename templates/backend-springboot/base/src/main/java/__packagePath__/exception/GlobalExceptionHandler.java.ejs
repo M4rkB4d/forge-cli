@@ -1,13 +1,22 @@
 package <%= packageName %>.exception;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -20,51 +29,181 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(BaseException.class)
-    public ProblemDetail handleBaseException(BaseException ex) {
-        log.warn("Business error: {} — {}", ex.getErrorCode(), ex.getMessage());
+    public ResponseEntity<ProblemDetail> handleBaseException(
+            BaseException ex, HttpServletRequest request) {
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(ex.getStatus(), ex.getMessage());
-        problem.setType(URI.create("https://api.example.com/errors/" + ex.getErrorCode().toLowerCase()));
-        problem.setTitle(ex.getStatus().getReasonPhrase());
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatusCode.valueOf(ex.getHttpStatus()), ex.getMessage());
+        problem.setTitle(toTitle(ex.getClass()));
+        problem.setType(URI.create("https://api.errors/" + toSlug(ex.getErrorCode())));
+        problem.setInstance(URI.create(request.getRequestURI()));
         problem.setProperty("errorCode", ex.getErrorCode());
         problem.setProperty("correlationId", MDC.get("correlationId"));
-        problem.setProperty("timestamp", Instant.now().toString());
+        problem.setProperty("timestamp", Instant.now());
 
-        return problem;
+        log.warn("Business error [{}]: {} | path={}",
+            ex.getErrorCode(), ex.getMessage(), request.getRequestURI());
+
+        return ResponseEntity.status(ex.getHttpStatus()).body(problem);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
-        log.warn("Validation failed: {} violations", ex.getBindingResult().getErrorCount());
+    public ResponseEntity<ProblemDetail> handleValidation(
+            MethodArgumentNotValidException ex, HttpServletRequest request) {
 
-        List<Map<String, String>> violations = ex.getBindingResult().getFieldErrors().stream()
-            .map(e -> Map.of("field", e.getField(), "message", e.getDefaultMessage() != null ? e.getDefaultMessage() : "Invalid value"))
-            .toList();
+        List<Map<String, Object>> violations = ex.getBindingResult()
+                .getFieldErrors().stream()
+                .map(error -> Map.<String, Object>of(
+                    "field", error.getField(),
+                    "message", error.getDefaultMessage() != null ? error.getDefaultMessage() : "Invalid value",
+                    "rejectedValue", error.getRejectedValue() != null
+                        ? error.getRejectedValue().toString() : "null"
+                ))
+                .toList();
 
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Request validation failed");
-        problem.setType(URI.create("https://api.example.com/errors/validation"));
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Request contains invalid fields.");
         problem.setTitle("Validation Failed");
+        problem.setType(URI.create("https://api.errors/validation-failed"));
+        problem.setInstance(URI.create(request.getRequestURI()));
         problem.setProperty("errorCode", "VAL-001");
-        problem.setProperty("violations", violations);
         problem.setProperty("correlationId", MDC.get("correlationId"));
-        problem.setProperty("timestamp", Instant.now().toString());
+        problem.setProperty("timestamp", Instant.now());
+        problem.setProperty("violations", violations);
 
-        return problem;
+        log.warn("Validation error: {} violations | path={}",
+            violations.size(), request.getRequestURI());
+
+        return ResponseEntity.badRequest().body(problem);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ProblemDetail> handleConstraintViolation(
+            ConstraintViolationException ex, HttpServletRequest request) {
+
+        List<Map<String, Object>> violations = ex.getConstraintViolations().stream()
+                .map(cv -> Map.<String, Object>of(
+                    "field", extractFieldName(cv.getPropertyPath()),
+                    "message", cv.getMessage(),
+                    "rejectedValue", cv.getInvalidValue() != null
+                        ? cv.getInvalidValue().toString() : "null"
+                ))
+                .toList();
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Request contains invalid parameters.");
+        problem.setTitle("Constraint Violation");
+        problem.setType(URI.create("https://api.errors/constraint-violation"));
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errorCode", "VAL-003");
+        problem.setProperty("correlationId", MDC.get("correlationId"));
+        problem.setProperty("timestamp", Instant.now());
+        problem.setProperty("violations", violations);
+
+        log.warn("Constraint violation: {} violations | path={}",
+            violations.size(), request.getRequestURI());
+
+        return ResponseEntity.badRequest().body(problem);
+    }
+
+    @ExceptionHandler({MissingServletRequestParameterException.class,
+                        MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ProblemDetail> handleBadRequest(
+            Exception ex, HttpServletRequest request) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, ex.getMessage());
+        problem.setTitle("Bad Request");
+        problem.setType(URI.create("https://api.errors/bad-request"));
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errorCode", "VAL-002");
+        problem.setProperty("correlationId", MDC.get("correlationId"));
+        problem.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.badRequest().body(problem);
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ProblemDetail> handleUnreadable(
+            HttpMessageNotReadableException ex, HttpServletRequest request) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.BAD_REQUEST, "Malformed request body.");
+        problem.setTitle("Bad Request");
+        problem.setType(URI.create("https://api.errors/malformed-body"));
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errorCode", "VAL-004");
+        problem.setProperty("correlationId", MDC.get("correlationId"));
+        problem.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.badRequest().body(problem);
+    }
+
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ProblemDetail> handleOptimisticLock(
+            OptimisticLockingFailureException ex, HttpServletRequest request) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT, "Resource was modified by another request. Please retry.");
+        problem.setTitle("Conflict");
+        problem.setType(URI.create("https://api.errors/conflict"));
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errorCode", "SYS-004");
+        problem.setProperty("correlationId", MDC.get("correlationId"));
+        problem.setProperty("timestamp", Instant.now());
+
+        log.warn("Optimistic lock failure | path={}", request.getRequestURI());
+
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(
+            AccessDeniedException ex, HttpServletRequest request) {
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.FORBIDDEN, "You do not have permission to perform this action.");
+        problem.setTitle("Forbidden");
+        problem.setType(URI.create("https://api.errors/forbidden"));
+        problem.setInstance(URI.create(request.getRequestURI()));
+        problem.setProperty("errorCode", "AUTH-002");
+        problem.setProperty("correlationId", MDC.get("correlationId"));
+        problem.setProperty("timestamp", Instant.now());
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
     }
 
     @ExceptionHandler(Exception.class)
-    public ProblemDetail handleGeneral(Exception ex) {
-        log.error("Unexpected error", ex);
+    public ResponseEntity<ProblemDetail> handleUnexpected(
+            Exception ex, HttpServletRequest request) {
+
+        log.error("Unexpected error | path={}", request.getRequestURI(), ex);
 
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(
-            HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred"
-        );
-        problem.setType(URI.create("https://api.example.com/errors/internal"));
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                "An unexpected error occurred. Please contact support.");
         problem.setTitle("Internal Server Error");
+        problem.setType(URI.create("https://api.errors/internal"));
+        problem.setInstance(URI.create(request.getRequestURI()));
         problem.setProperty("errorCode", "SYS-001");
         problem.setProperty("correlationId", MDC.get("correlationId"));
-        problem.setProperty("timestamp", Instant.now().toString());
+        problem.setProperty("timestamp", Instant.now());
 
-        return problem;
+        return ResponseEntity.internalServerError().body(problem);
+    }
+
+    private static String toTitle(Class<?> clazz) {
+        String name = clazz.getSimpleName().replace("Exception", "");
+        return name.replaceAll("(\\p{Ll})(\\p{Lu})", "$1 $2");
+    }
+
+    private static String toSlug(String errorCode) {
+        return errorCode.toLowerCase().replace("_", "-");
+    }
+
+    private String extractFieldName(jakarta.validation.Path propertyPath) {
+        String path = propertyPath.toString();
+        int dot = path.lastIndexOf('.');
+        return dot >= 0 ? path.substring(dot + 1) : path;
     }
 }

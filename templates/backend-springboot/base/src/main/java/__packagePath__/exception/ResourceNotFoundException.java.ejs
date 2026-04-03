@@ -1,14 +1,12 @@
 package <%= packageName %>.exception;
 
-import org.springframework.http.HttpStatus;
-
 public class ResourceNotFoundException extends BaseException {
 
     public ResourceNotFoundException(String resourceType, Object id) {
         super(
-            String.format("%s not found with id: %s", resourceType, id),
-            "RES-001",
-            HttpStatus.NOT_FOUND
+            resourceType.toUpperCase().substring(0, Math.min(4, resourceType.length())) + "-404",
+            404,
+            resourceType + " not found with id: " + id
         );
     }
 }

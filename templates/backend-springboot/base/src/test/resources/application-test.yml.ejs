@@ -1,25 +1,18 @@
-# Test profile configuration
 spring:
-  main:
-    allow-bean-definition-overriding: true
   application:
     name: <%= projectName %>-test
-  datasource:
-    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
-  jpa:
-    database-platform: org.hibernate.dialect.H2Dialect
-    hibernate:
-      ddl-auto: create-drop
   flyway:
-    enabled: false
+    enabled: true
 <% if (messaging === 'Azure Service Bus') { %>
-  jms:
-    servicebus:
-      connection-string: Endpoint=sb://test.servicebus.windows.net/;SharedAccessKeyName=test;SharedAccessKey=dGVzdA==
-      pricing-tier: standard
+  cloud:
+    azure:
+      servicebus:
+        namespace: test-namespace
+        entity-type: queue
+<% } %>
+<% if (messaging === 'Kafka') { %>
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}
 <% } %>
 <% if (authPattern === 'OAuth2 + Azure AD') { %>
   security:
@@ -27,9 +20,24 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: https://login.microsoftonline.com/test-tenant-id/v2.0
+<% } else if (authPattern === 'JWT') { %>
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://test-issuer.example.com
 <% } %>
+
+management:
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: db
+        liveness:
+          include: livenessState
 
 logging:
   level:
     root: WARN
-    <%= packageName %>: DEBUG
+    <%= groupId %>: DEBUG

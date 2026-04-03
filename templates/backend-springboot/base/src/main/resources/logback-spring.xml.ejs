@@ -2,28 +2,50 @@
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
-    <springProfile name="local,dev">
-        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
-        <root level="INFO">
+    <springProfile name="local">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss} %-5level [%X{correlationId}][%X{requestId}] %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+        <root level="DEBUG">
             <appender-ref ref="CONSOLE"/>
         </root>
     </springProfile>
 
-    <springProfile name="staging,prod">
+    <springProfile name="!local">
         <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
             <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <jsonGeneratorDecorator class="net.logstash.logback.mask.MaskJsonGeneratorDecorator">
+                    <valueMask>
+                        <value>password</value>
+                        <mask>****</mask>
+                    </valueMask>
+                    <valueMask>
+                        <value>accessToken</value>
+                        <mask>****</mask>
+                    </valueMask>
+                    <valueMask>
+                        <value>authorization</value>
+                        <mask>****</mask>
+                    </valueMask>
+                    <valueMask>
+                        <value>accountNumber</value>
+                        <mask>****</mask>
+                    </valueMask>
+                </jsonGeneratorDecorator>
+                <fieldNames>
+                    <timestamp>timestamp</timestamp>
+                    <version>[ignore]</version>
+                    <levelValue>[ignore]</levelValue>
+                </fieldNames>
                 <includeMdcKeyName>correlationId</includeMdcKeyName>
+                <includeMdcKeyName>requestId</includeMdcKeyName>
+                <customFields>{"service":"${SERVICE_NAME:<%= projectName %>}","environment":"${ENVIRONMENT:unknown}"}</customFields>
             </encoder>
         </appender>
         <root level="INFO">
             <appender-ref ref="JSON"/>
-        </root>
-    </springProfile>
-
-    <springProfile name="default">
-        <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
         </root>
     </springProfile>
 </configuration>

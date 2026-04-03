@@ -1,0 +1,31 @@
+# ADR-001: Initial Architecture
+
+**Date:** $(date +%Y-%m-%d)
+**Status:** Accepted
+
+## Context
+
+This service was scaffolded using Forge CLI to follow organizational standards.
+
+## Decision
+
+| Aspect | Choice |
+|--------|--------|
+| Runtime | Java 21 (LTS) |
+| Framework | Spring Boot 4.0.5 |
+| Database | SQL Server (Azure SQL) |
+| Auth | <%= authPattern %> |
+| Messaging | <%= messaging %> |
+| Observability | OpenTelemetry, Logstash JSON, Prometheus |
+| Resilience | Resilience4j (circuit breaker, retry, bulkhead, time limiter) |
+| Testing | JUnit 5, TestContainers (SQL Server), MockMvc |
+| Build | Maven, JaCoCo (85% coverage minimum) |
+| Container | Multi-stage Dockerfile, layered jar, non-root user |
+
+## Consequences
+
+- All developers need Docker for local development (SQL Server + TestContainers)
+<% if (messaging === 'Kafka') { %>- Kafka must be available locally (Docker Compose recommended)
+<% } %>
+- Security is always on (even with auth=None, security headers are applied)
+- Coverage enforcement may require writing tests before new features pass CI

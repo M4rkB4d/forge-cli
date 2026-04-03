@@ -3,6 +3,8 @@ spring:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
+  flyway:
+    clean-disabled: true
 <% if (messaging === 'Kafka') { %>
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
@@ -10,5 +12,5 @@ spring:
 
 logging:
   level:
-    <%= groupId %>: DEBUG
-    org.hibernate.SQL: DEBUG
+    root: WARN
+    <%= groupId %>: INFO
