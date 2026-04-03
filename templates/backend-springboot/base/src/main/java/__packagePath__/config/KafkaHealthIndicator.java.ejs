@@ -1,0 +1,37 @@
+<% if (messaging === 'Kafka') { %>
+package <%= packageName %>.config;
+
+import org.apache.kafka.clients.admin.AdminClient;
+import org.springframework.boot.health.contributor.AbstractHealthIndicator;
+import org.springframework.boot.health.contributor.Health;
+import org.springframework.kafka.core.KafkaAdmin;
+import org.springframework.stereotype.Component;
+
+import java.util.concurrent.TimeUnit;
+
+/**
+ * Custom Kafka health indicator — Spring Boot does not ship one out of the box.
+ * Registered as 'kafkaHealth' for use in actuator health groups.
+ */
+@Component("kafkaHealth")
+public class KafkaHealthIndicator extends AbstractHealthIndicator {
+
+    private final KafkaAdmin kafkaAdmin;
+
+    public KafkaHealthIndicator(KafkaAdmin kafkaAdmin) {
+        super("Kafka health check failed");
+        this.kafkaAdmin = kafkaAdmin;
+    }
+
+    @Override
+    protected void doHealthCheck(Health.Builder builder) throws Exception {
+        try (AdminClient client = AdminClient.create(kafkaAdmin.getConfigurationProperties())) {
+            var nodes = client.describeCluster().nodes().get(5, TimeUnit.SECONDS);
+            builder.up()
+                .withDetail("clusterId",
+                    client.describeCluster().clusterId().get(5, TimeUnit.SECONDS))
+                .withDetail("nodeCount", nodes.size());
+        }
+    }
+}
+<% } %>
