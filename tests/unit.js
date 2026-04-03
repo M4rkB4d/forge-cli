@@ -626,6 +626,7 @@ console.log('╚═════════════════════�
   const suite = 'runtime/springboot';
   const MVN = 'C:/tools/apache-maven-3.9.14/bin/mvn.cmd';
   const dir = join(OUT, 'runtime-sb');
+  const containerName = 'forge-test-sqlserver';
 
   const files = compose({
     templateId: 'backend-springboot',
@@ -645,65 +646,139 @@ console.log('╚═════════════════════�
 
   writeProject(files, dir, { git: false, install: false });
 
+  const SA_PASSWORD = 'ForgeTest2026x';
+  const SQL_PORT = 11433; // avoid conflict with local SQL Server on 1433
+
+  // Check Docker is available
+  let dockerAvailable = false;
   try {
-    execSync(`"${MVN}" compile -q`, { cwd: dir, timeout: 120000 });
-    record(suite, 'mvn compile (noauth)', 'PASS');
+    execSync('docker info', { stdio: 'pipe', timeout: 10000 });
+    dockerAvailable = true;
+  } catch {
+    record(suite, 'Docker check', 'SKIP', 'Docker not available — skipping runtime test');
+  }
 
-    // Run Spring Boot and hit health endpoint
-    const proc = spawn(
-      MVN, ['spring-boot:run', '-q'],
-      { cwd: dir, shell: true, stdio: 'pipe' }
-    );
+  if (dockerAvailable) {
+    // Clean up any leftover container from a previous run
+    try { execSync(`docker rm -f ${containerName}`, { stdio: 'pipe' }); } catch {}
 
-    // Wait for startup
-    let started = false;
-    const startPromise = new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve(false), 60000);
-      proc.stdout.on('data', (data) => {
-        if (data.toString().includes('Started') || data.toString().includes('Tomcat started')) {
-          clearTimeout(timeout);
-          resolve(true);
+    try {
+      execSync(`"${MVN}" compile -q`, { cwd: dir, timeout: 120000 });
+      record(suite, 'mvn compile (noauth)', 'PASS');
+
+      // Start SQL Server container on non-standard port
+      execSync(
+        `docker run -d --name ${containerName} ` +
+        `-e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=${SA_PASSWORD}" ` +
+        `-p ${SQL_PORT}:1433 mcr.microsoft.com/mssql/server:2022-latest`,
+        { stdio: 'pipe', timeout: 30000 }
+      );
+
+      // Wait for SQL Server to be ready (poll with sqlcmd)
+      let sqlReady = false;
+      for (let i = 0; i < 30; i++) {
+        try {
+          execSync(
+            `docker exec ${containerName} bash -c ` +
+            `"/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${SA_PASSWORD}' -Q 'SELECT 1' -C"`,
+            { stdio: 'pipe', timeout: 5000 }
+          );
+          sqlReady = true;
+          break;
+        } catch {
+          execSync('ping -n 2 127.0.0.1 > nul', { stdio: 'pipe' });
         }
-      });
-      proc.stderr.on('data', (data) => {
-        if (data.toString().includes('Started') || data.toString().includes('Tomcat started')) {
-          clearTimeout(timeout);
-          resolve(true);
-        }
-      });
-    });
-
-    started = await startPromise;
-
-    if (started) {
-      // Hit health endpoint
-      try {
-        const http = await import('http');
-        const healthCheck = await new Promise((resolve, reject) => {
-          const req = http.default.get('http://localhost:8080/api/health', (res) => {
-            let body = '';
-            res.on('data', (chunk) => body += chunk);
-            res.on('end', () => resolve({ status: res.statusCode, body }));
-          });
-          req.on('error', reject);
-          req.setTimeout(5000, () => { req.destroy(); reject(new Error('timeout')); });
-        });
-
-        assert(healthCheck.status === 200, suite, 'Spring Boot health returns 200');
-        assert(healthCheck.body.includes('"status":"UP"'), suite,
-          'Spring Boot health body has status=UP');
-      } catch (err) {
-        record(suite, 'Spring Boot health check', 'FAIL', err.message);
       }
-    } else {
-      record(suite, 'Spring Boot startup', 'SKIP', 'App did not start within 60s');
-    }
 
-    proc.kill('SIGTERM');
-    // Give it a moment to clean up
-    try { proc.kill('SIGKILL'); } catch {}
-  } catch (err) {
-    record(suite, 'mvn compile', 'FAIL', err.message);
+      if (!sqlReady) {
+        record(suite, 'SQL Server startup', 'SKIP', 'SQL Server did not become ready within 60s');
+      } else {
+        record(suite, 'SQL Server ready', 'PASS');
+
+        // Create the database
+        execSync(
+          `docker exec ${containerName} bash -c ` +
+          `"/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${SA_PASSWORD}' -Q 'CREATE DATABASE [runtime-sb]' -C"`,
+          { stdio: 'pipe', timeout: 10000 }
+        );
+
+        // Write a test-runtime profile that points at our container.
+        // This avoids all shell-escaping issues with JDBC URLs containing
+        // semicolons (cmd.exe treats them as command separators).
+        writeFileSync(join(dir, 'src/main/resources/application-testruntime.yml'), [
+          'spring:',
+          '  datasource:',
+          `    url: jdbc:sqlserver://localhost:${SQL_PORT};databaseName=runtime-sb;encrypt=false`,
+          '    username: sa',
+          `    password: ${SA_PASSWORD}`,
+          '  flyway:',
+          '    out-of-order: true',
+        ].join('\n'));
+
+        // Run Spring Boot with testruntime profile
+        const proc = spawn(
+          MVN, ['spring-boot:run', '-Dspring-boot.run.profiles=testruntime'],
+          { cwd: dir, shell: true, stdio: 'pipe' }
+        );
+
+        // Wait for startup: poll the health endpoint instead of parsing output.
+        // Output-based detection is unreliable on Windows with shell:true and
+        // high-volume DEBUG logging (chunks split keywords across boundaries).
+        let started = false;
+        const http = await import('http');
+        const pollStart = Date.now();
+        while (Date.now() - pollStart < 90000) {
+          try {
+            await new Promise((resolve, reject) => {
+              const req = http.default.get('http://localhost:8080/actuator/health', (res) => {
+                let body = '';
+                res.on('data', (chunk) => body += chunk);
+                res.on('end', () => resolve(res.statusCode));
+              });
+              req.on('error', reject);
+              req.setTimeout(2000, () => { req.destroy(); reject(new Error('timeout')); });
+            });
+            started = true;
+            break;
+          } catch {
+            await new Promise(r => setTimeout(r, 2000));
+          }
+        }
+
+        if (started) {
+          record(suite, 'Spring Boot startup', 'PASS');
+
+          // Hit actuator health endpoint (dedicated check for response body)
+          try {
+            const healthCheck = await new Promise((resolve, reject) => {
+              const req = http.default.get('http://localhost:8080/actuator/health', (res) => {
+                let body = '';
+                res.on('data', (chunk) => body += chunk);
+                res.on('end', () => resolve({ status: res.statusCode, body }));
+              });
+              req.on('error', reject);
+              req.setTimeout(10000, () => { req.destroy(); reject(new Error('timeout')); });
+            });
+
+            assert(healthCheck.status === 200, suite, 'actuator health returns 200');
+            const healthBody = JSON.parse(healthCheck.body);
+            assert(healthBody.status === 'UP', suite, 'actuator health status is UP');
+          } catch (err) {
+            record(suite, 'actuator health check', 'FAIL', err.message);
+          }
+        } else {
+          record(suite, 'Spring Boot startup', 'SKIP', 'App did not start within 90s');
+        }
+
+        proc.kill('SIGTERM');
+        try { proc.kill('SIGKILL'); } catch {}
+      }
+    } catch (err) {
+      record(suite, 'mvn compile', 'FAIL', err.message);
+    } finally {
+      // Always clean up the container
+      try { execSync(`docker rm -f ${containerName}`, { stdio: 'pipe' }); } catch {}
+    }
   }
 }
 
