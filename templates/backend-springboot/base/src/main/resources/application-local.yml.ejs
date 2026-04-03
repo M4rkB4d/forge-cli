@@ -5,6 +5,20 @@ spring:
     password: ${DB_PASSWORD:LocalDev123!}
   flyway:
     out-of-order: true
+<% if (authPattern === 'OAuth2 + Azure AD') { %>
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID:your-tenant-id}/v2.0
+          audiences: ${AZURE_CLIENT_ID:your-client-id}
+<% } else if (authPattern === 'JWT') { %>
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:https://localhost:8443/realms/local}
+<% } %>
 <% if (messaging === 'Kafka') { %>
   kafka:
     bootstrap-servers: localhost:9092
