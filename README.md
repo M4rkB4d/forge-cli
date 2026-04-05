@@ -38,6 +38,9 @@ forge create --dry-run
 # Scaffold into an existing directory (e.g., a cloned empty repo)
 forge init
 
+# Remove leftover files from an old scaffold before re-scaffolding
+forge clean
+
 # List all available templates and add-ons
 forge list
 ```
@@ -157,6 +160,23 @@ Options:
 ```
 
 Use `forge init` when you've already cloned an empty repo and want to scaffold into it. It detects `.git/` and commits the scaffold into the existing repository instead of running `git init`.
+
+```
+forge clean
+
+Options:
+  -o, --output <dir>    Target directory (default: current directory)
+  --dry-run             Preview deletions without removing files
+```
+
+Use `forge clean` when re-scaffolding a project that was generated with an older version of the template. It asks the same prompts as `forge init`, then compares what the current template would generate against what's on disk. Files that no longer exist in the template (e.g., renamed or removed configs) are deleted. Protected directories (`.git`, `target`, `.idea`, `node_modules`) are never touched.
+
+**Typical re-scaffold workflow:**
+```bash
+cd my-project
+forge clean          # remove orphan files from old template
+forge init           # re-scaffold with latest template
+```
 
 ## Generated Project Structure
 
@@ -308,7 +328,7 @@ The `groupId` (e.g., `com.company`) is set during the prompts for Java templates
 # Quick smoke test (6 tests)
 node tests/smoke.js
 
-# Unit + integration tests (~200 tests)
+# Unit + integration tests (~210 tests)
 node tests/unit.js
 
 # Full generation + build verification (requires Java + Maven + Docker)

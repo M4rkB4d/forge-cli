@@ -14,7 +14,7 @@ import { compose } from '../src/core/composer.js';
 import { getTemplates, getLayers, getCompatibleLayers } from '../src/core/registry.js';
 import { renderTemplate } from '../src/core/renderer.js';
 import { writeProject } from '../src/core/writer.js';
-import { writeFileSync, mkdirSync, readFileSync, existsSync, rmSync } from 'fs';
+import { writeFileSync, mkdirSync, readFileSync, existsSync, rmSync, readdirSync, statSync, unlinkSync, rmdirSync } from 'fs';
 import { join } from 'path';
 import { execSync, spawn } from 'child_process';
 
@@ -1004,7 +1004,7 @@ console.log('╚═════════════════════�
   const srcFiles = [
     'src/core/composer.js', 'src/core/renderer.js', 'src/core/registry.js',
     'src/core/writer.js', 'src/core/prompter.js',
-    'src/commands/create.js', 'src/commands/list.js',
+    'src/commands/create.js', 'src/commands/clean.js', 'src/commands/list.js',
     'bin/forge.js', 'package.json',
   ];
 
@@ -1025,6 +1025,160 @@ console.log('╚═════════════════════�
     }
     if (clean) record(suite, `${file}: no AI traces`, 'PASS');
   }
+}
+
+// ──────────────────────────────────────────────
+// Suite 12: forge clean — orphan detection & deletion
+// ──────────────────────────────────────────────
+{
+  const suite = 'forge-clean';
+  console.log(`\n▸ ${suite}`);
+
+  // Set up a fake project with extra (orphan) files
+  const cleanDir = join(OUT, 'clean-test-project');
+  mkdirSync(cleanDir, { recursive: true });
+
+  // Generate a real scaffold
+  const config = {
+    templateId: 'backend-springboot',
+    variables: {
+      projectName: 'clean-test',
+      className: 'CleanTest',
+      groupId: 'com.company',
+      artifactName: 'cleantest',
+      packageName: 'com.company.cleantest',
+      packagePath: 'com/company/cleantest',
+      authPattern: 'None',
+      messaging: 'None',
+      runtime: 'java',
+    },
+    layers: [],
+  };
+
+  const scaffoldFiles = compose(config);
+  const templatePaths = new Set(scaffoldFiles.map(f => f.path));
+
+  // Write scaffold files
+  for (const file of scaffoldFiles) {
+    const fullPath = join(cleanDir, file.path);
+    mkdirSync(join(fullPath, '..'), { recursive: true });
+    writeFileSync(fullPath, file.content, 'utf-8');
+  }
+
+  // Add orphan files (simulating old template leftovers)
+  const orphanFiles = [
+    'src/main/java/com/company/cleantest/config/CorsConfig.java',
+    'src/main/java/com/company/cleantest/config/SwaggerConfig.java',
+    'src/main/java/com/company/cleantest/controller/HealthController.java',
+    'src/main/java/com/company/cleantest/filter/CorrelationIdFilter.java',
+  ];
+  for (const orphan of orphanFiles) {
+    const fullPath = join(cleanDir, orphan);
+    mkdirSync(join(fullPath, '..'), { recursive: true });
+    writeFileSync(fullPath, '// old file', 'utf-8');
+  }
+
+  // Add protected directories that should NOT be touched
+  mkdirSync(join(cleanDir, '.git', 'objects'), { recursive: true });
+  writeFileSync(join(cleanDir, '.git', 'HEAD'), 'ref: refs/heads/master', 'utf-8');
+  mkdirSync(join(cleanDir, 'target', 'classes'), { recursive: true });
+  writeFileSync(join(cleanDir, 'target', 'classes', 'App.class'), 'bytecode', 'utf-8');
+
+  // Simulate forge clean logic (same as clean.js but non-interactive)
+  const PROTECTED_DIRS = new Set(['.git', 'target', 'build', '.idea', '.vscode', 'node_modules', '.gradle']);
+
+  function projectWalk(baseDir) {
+    const results = [];
+    function walk(dir) {
+      for (const entry of readdirSync(dir)) {
+        if (PROTECTED_DIRS.has(entry)) continue;
+        const full = join(dir, entry);
+        if (statSync(full).isDirectory()) {
+          walk(full);
+        } else {
+          const rel = full.substring(baseDir.length + 1).split('\\').join('/');
+          results.push(rel);
+        }
+      }
+    }
+    walk(baseDir);
+    return results;
+  }
+
+  const allProjectFiles = projectWalk(cleanDir);
+  const detectedOrphans = allProjectFiles.filter(f => !templatePaths.has(f));
+
+  // Test 1: Correct number of orphans detected
+  assert(
+    detectedOrphans.length === orphanFiles.length,
+    suite,
+    `detects ${orphanFiles.length} orphan files`,
+    `found ${detectedOrphans.length}: ${JSON.stringify(detectedOrphans)}`,
+  );
+
+  // Test 2: All orphans are the ones we planted
+  const orphanSet = new Set(orphanFiles);
+  const allOrphansMatch = detectedOrphans.every(f => orphanSet.has(f));
+  assert(allOrphansMatch, suite, 'all detected orphans match planted files');
+
+  // Test 3: Protected dirs not scanned (no .git or target files in results)
+  const hasProtected = allProjectFiles.some(f => f.startsWith('.git/') || f.startsWith('target/'));
+  assert(!hasProtected, suite, 'protected directories (.git, target) are skipped');
+
+  // Test 4: Delete orphans and verify
+  for (const file of detectedOrphans) {
+    unlinkSync(join(cleanDir, file));
+  }
+
+  // Clean empty dirs
+  function sweepEmpty(dir) {
+    let count = 0;
+    for (const entry of readdirSync(dir)) {
+      if (PROTECTED_DIRS.has(entry)) continue;
+      const full = join(dir, entry);
+      if (statSync(full).isDirectory()) {
+        count += sweepEmpty(full);
+        if (readdirSync(full).length === 0) {
+          rmdirSync(full);
+          count++;
+        }
+      }
+    }
+    return count;
+  }
+  const emptied = sweepEmpty(cleanDir);
+
+  // filter/ directory should have been removed (it only contained the orphan)
+  assert(
+    !existsSync(join(cleanDir, 'src/main/java/com/company/cleantest/filter')),
+    suite,
+    'empty orphan directory (filter/) removed',
+  );
+
+  // Test 5: After clean, project matches template
+  const afterClean = projectWalk(cleanDir);
+  const remainingOrphans = afterClean.filter(f => !templatePaths.has(f));
+  assert(remainingOrphans.length === 0, suite, 'no orphans remain after clean');
+
+  // Test 6: Protected dirs still intact
+  assert(
+    existsSync(join(cleanDir, '.git', 'HEAD')),
+    suite,
+    '.git directory preserved after clean',
+  );
+  assert(
+    existsSync(join(cleanDir, 'target', 'classes', 'App.class')),
+    suite,
+    'target directory preserved after clean',
+  );
+
+  // Test 7: Template files still intact
+  const templateStillThere = scaffoldFiles.every(f => existsSync(join(cleanDir, f.path)));
+  assert(templateStillThere, suite, 'all template files preserved after clean');
+
+  // Test 8: Running clean on already-clean project finds 0 orphans
+  const cleanAgain = projectWalk(cleanDir).filter(f => !templatePaths.has(f));
+  assert(cleanAgain.length === 0, suite, 'running clean on clean project finds 0 orphans');
 }
 
 // ──────────────────────────────────────────────

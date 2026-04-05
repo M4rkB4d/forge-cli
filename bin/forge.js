@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { createAction } from '../src/commands/create.js';
 import { initAction } from '../src/commands/init.js';
 import { listAction } from '../src/commands/list.js';
+import { cleanAction } from '../src/commands/clean.js';
 
 const program = new Command();
 
@@ -32,6 +33,13 @@ program
   .option('--no-install', 'skip dependency installation')
   .option('--dry-run', 'preview files without writing')
   .action(initAction);
+
+program
+  .command('clean')
+  .description('Remove scaffold files that no longer exist in the current template')
+  .option('-o, --output <dir>', 'target directory', '.')
+  .option('--dry-run', 'preview deletions without removing files')
+  .action(cleanAction);
 
 program
   .command('list')
