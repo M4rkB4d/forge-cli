@@ -8,7 +8,13 @@ import { compose } from '../core/composer.js';
  * Directories that are NEVER touched by forge clean.
  * These are created by tools/IDEs/build systems, not by the template.
  */
-const PROTECTED = new Set(['.git', 'target', 'build', '.idea', '.vscode', 'node_modules', '.gradle']);
+const PROTECTED_DIRS = new Set(['.git', 'target', 'build', '.idea', '.vscode', 'node_modules', '.gradle']);
+
+/**
+ * Files that are NEVER touched by forge clean.
+ * These are created by package managers or build tools, not by the template.
+ */
+const PROTECTED_FILES = new Set(['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', '.env', '.env.local']);
 
 /**
  * `forge clean` — remove scaffold files that no longer exist in the current template.
@@ -50,9 +56,9 @@ export async function cleanAction(opts) {
     const files = compose(config);
     const templatePaths = new Set(files.map(f => f.path));
 
-    // Walk the project and find orphans
+    // Walk the project and find orphans (exclude protected files like package-lock.json)
     const allFiles = walkProject(targetDir);
-    const orphans = allFiles.filter(f => !templatePaths.has(f));
+    const orphans = allFiles.filter(f => !templatePaths.has(f) && !PROTECTED_FILES.has(basename(f)));
 
     if (orphans.length === 0) {
       p.outro('No orphan files found — project matches the current template.');
@@ -113,7 +119,7 @@ function walkProject(baseDir) {
 
   function walk(dir) {
     for (const entry of readdirSync(dir)) {
-      if (PROTECTED.has(entry)) continue;
+      if (PROTECTED_DIRS.has(entry)) continue;
       const full = join(dir, entry);
       if (statSync(full).isDirectory()) {
         walk(full);
@@ -136,7 +142,7 @@ function cleanEmptyDirs(baseDir) {
 
   function sweep(dir) {
     for (const entry of readdirSync(dir)) {
-      if (PROTECTED.has(entry)) continue;
+      if (PROTECTED_DIRS.has(entry)) continue;
       const full = join(dir, entry);
       if (statSync(full).isDirectory()) {
         sweep(full);
