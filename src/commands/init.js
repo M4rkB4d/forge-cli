@@ -4,6 +4,7 @@ import * as p from '@clack/prompts';
 import { promptUser } from '../core/prompter.js';
 import { compose } from '../core/composer.js';
 import { writeProject } from '../core/writer.js';
+import { walkProject, findOrphans, removeOrphans } from '../core/cleaner.js';
 
 /**
  * Converts a directory name into a valid npm/project name.
@@ -29,6 +30,7 @@ function sanitizeName(raw) {
  * - Detects .git/ and preserves it — commits scaffold instead of running git init
  * - Uses the directory name as default project name
  * - Warns if directory contains non-trivial files
+ * - Detects and removes orphan files from previous scaffolds
  */
 export async function initAction(opts) {
   try {
@@ -65,6 +67,33 @@ export async function initAction(opts) {
     const config = await promptUser({ defaultName: sanitized, ...opts });
 
     const files = compose(config);
+    const templatePaths = new Set(files.map(f => f.path));
+
+    // Detect orphan files from previous scaffold (if any exist on disk)
+    const projectFiles = walkProject(targetDir);
+    if (projectFiles.length > 0) {
+      const orphans = findOrphans(projectFiles, templatePaths);
+
+      if (orphans.length > 0 && !opts.dryRun) {
+        p.note(
+          orphans.map(f => `  ${f}`).join('\n'),
+          `${orphans.length} file(s) from previous scaffold no longer in template`,
+        );
+
+        const deleteOrphans = await p.confirm({
+          message: 'Remove these orphan files?',
+        });
+
+        if (deleteOrphans && !p.isCancel(deleteOrphans)) {
+          const { deleted, emptied } = removeOrphans(targetDir, orphans);
+          console.log(`\n  Removed ${deleted} orphan file(s)${emptied > 0 ? ` and ${emptied} empty folder(s)` : ''}\n`);
+        }
+      } else if (orphans.length > 0 && opts.dryRun) {
+        console.log(`\n  Dry run — ${orphans.length} orphan file(s) would be removed:\n`);
+        orphans.forEach(f => console.log(`    ${f}`));
+        console.log('');
+      }
+    }
 
     writeProject(files, targetDir, {
       dryRun: opts.dryRun,

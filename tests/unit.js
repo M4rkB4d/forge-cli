@@ -1004,7 +1004,7 @@ console.log('╚═════════════════════�
   const srcFiles = [
     'src/core/composer.js', 'src/core/renderer.js', 'src/core/registry.js',
     'src/core/writer.js', 'src/core/prompter.js',
-    'src/commands/create.js', 'src/commands/clean.js', 'src/commands/list.js',
+    'src/commands/create.js', 'src/commands/clean.js', 'src/commands/list.js', 'src/core/cleaner.js',
     'bin/forge.js', 'package.json',
   ];
 
