@@ -2,10 +2,10 @@ package <%= packageName %>.config;
 
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
-<% if (authPattern !== 'None') { %>
+<%_ if (authPattern !== 'None') { -%>
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
-<% } %>
+<%_ } -%>
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,7 +14,7 @@ public class OpenApiConfig {
 
     @Bean
     public OpenAPI openAPI() {
-<% if (authPattern !== 'None') { %>
+<%_ if (authPattern !== 'None') { -%>
         final String securitySchemeName = "Bearer";
         return new OpenAPI()
             .info(new Info()
@@ -27,12 +27,12 @@ public class OpenApiConfig {
                 .type(SecurityScheme.Type.HTTP)
                 .scheme("bearer")
                 .bearerFormat("JWT"));
-<% } else { %>
+<%_ } else { -%>
         return new OpenAPI()
             .info(new Info()
                 .title("<%= className %> API")
                 .version("0.0.1")
                 .description("API documentation for <%= projectName %>"));
-<% } %>
+<%_ } -%>
     }
 }

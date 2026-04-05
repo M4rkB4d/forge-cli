@@ -1,0 +1,44 @@
+package <%= packageName %>.mapper;
+
+import <%= packageName %>.domain.entity.SampleEntity;
+import <%= packageName %>.dto.request.SampleRequest;
+import <%= packageName %>.dto.response.SampleResponse;
+
+/**
+ * Maps between SampleEntity and DTOs.
+ * Keep mapping logic here — not in controllers or services.
+ * For complex mappings, consider MapStruct (add to pom.xml).
+ *
+ * <p>Replace with your actual domain mapper (e.g., AccountMapper).</p>
+ */
+public final class SampleMapper {
+
+    private SampleMapper() {
+        // Utility class — no instantiation
+    }
+
+    public static SampleResponse toResponse(SampleEntity entity) {
+        return new SampleResponse(
+            entity.getId(),
+            entity.getCode(),
+            entity.getName(),
+            entity.getDescription(),
+            entity.getStatus().name(),
+            entity.getCreatedAt(),
+            entity.getUpdatedAt()
+        );
+    }
+
+    public static SampleEntity toEntity(SampleRequest request) {
+        return new SampleEntity(
+            request.code(),
+            request.name(),
+            request.description()
+        );
+    }
+
+    public static void updateEntity(SampleEntity entity, SampleRequest request) {
+        entity.setName(request.name());
+        entity.setDescription(request.description());
+    }
+}

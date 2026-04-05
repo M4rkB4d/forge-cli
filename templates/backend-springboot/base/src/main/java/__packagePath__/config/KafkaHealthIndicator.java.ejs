@@ -1,4 +1,4 @@
-<% if (messaging === 'Kafka') { %>
+<%_ if (messaging === 'Kafka') { -%>
 package <%= packageName %>.config;
 
 import org.apache.kafka.clients.admin.AdminClient;
@@ -34,4 +34,4 @@ public class KafkaHealthIndicator extends AbstractHealthIndicator {
         }
     }
 }
-<% } %>
+<%_ } -%>

@@ -11,12 +11,12 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-<% if (authPattern === 'OAuth2 + Azure AD' || authPattern === 'JWT') { %>
+<%_ if (authPattern === 'OAuth2 + Azure AD' || authPattern === 'JWT') { -%>
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
-<% } %>
+<%_ } -%>
 
 import java.util.List;
 
@@ -30,25 +30,25 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-<% if (authPattern === 'None') { %>
+<%_ if (authPattern === 'None') { -%>
             .authorizeHttpRequests(auth -> auth
                 .anyRequest().permitAll()
             )
-<% } else { %>
+<%_ } else { -%>
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/api/v1/public/**").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**").permitAll()
                 .anyRequest().authenticated()
             )
-<% } %>
-<% if (authPattern === 'OAuth2 + Azure AD') { %>
+<%_ } -%>
+<%_ if (authPattern === 'OAuth2 + Azure AD') { -%>
             .oauth2ResourceServer(oauth2 ->
                 oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter())))
-<% } else if (authPattern === 'JWT') { %>
+<%_ } else if (authPattern === 'JWT') { -%>
             .oauth2ResourceServer(oauth2 ->
                 oauth2.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthConverter())))
-<% } %>
+<%_ } -%>
             .headers(headers -> headers
                 .frameOptions(frame -> frame.deny())
                 .contentTypeOptions(Customizer.withDefaults())
@@ -61,16 +61,16 @@ public class SecurityConfig {
                     .policyDirectives("default-src 'self'; script-src 'self'; object-src 'none'"))
             )
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-<% if (authPattern === 'OAuth2 + Azure AD' || authPattern === 'JWT') { %>
+<%_ if (authPattern === 'OAuth2 + Azure AD' || authPattern === 'JWT') { -%>
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(new BearerTokenAuthenticationEntryPoint())
                 .accessDeniedHandler(new BearerTokenAccessDeniedHandler()))
-<% } %>
+<%_ } -%>
         ;
 
         return http.build();
     }
-<% if (authPattern === 'OAuth2 + Azure AD') { %>
+<%_ if (authPattern === 'OAuth2 + Azure AD') { -%>
 
     private JwtAuthenticationConverter jwtAuthConverter() {
         JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
@@ -81,7 +81,7 @@ public class SecurityConfig {
         converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
         return converter;
     }
-<% } else if (authPattern === 'JWT') { %>
+<%_ } else if (authPattern === 'JWT') { -%>
 
     private JwtAuthenticationConverter jwtAuthConverter() {
         JwtGrantedAuthoritiesConverter authoritiesConverter = new JwtGrantedAuthoritiesConverter();
@@ -92,7 +92,7 @@ public class SecurityConfig {
         converter.setJwtGrantedAuthoritiesConverter(authoritiesConverter);
         return converter;
     }
-<% } %>
+<%_ } -%>
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {

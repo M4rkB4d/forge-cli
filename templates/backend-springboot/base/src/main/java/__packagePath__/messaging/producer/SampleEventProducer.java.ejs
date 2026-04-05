@@ -1,0 +1,113 @@
+<%_ if (messaging === 'Kafka') { -%>
+package <%= packageName %>.messaging.producer;
+
+import <%= packageName %>.dto.response.SampleResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.stereotype.Component;
+
+/**
+ * Publishes sample domain events to Kafka.
+ *
+ * <p>Pattern: fire-and-forget with logging. For guaranteed delivery,
+ * consider the Transactional Outbox pattern instead of direct Kafka sends.</p>
+ *
+ * <p>Replace with your actual domain event producer (e.g., AccountEventProducer).</p>
+ */
+@Component
+public class SampleEventProducer {
+
+    private static final Logger log = LoggerFactory.getLogger(SampleEventProducer.class);
+
+    public static final String TOPIC_SAMPLE_CREATED = "sample.created";
+    public static final String TOPIC_SAMPLE_UPDATED = "sample.updated";
+    public static final String TOPIC_SAMPLE_DELETED = "sample.deleted";
+
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+
+    public SampleEventProducer(KafkaTemplate<String, Object> kafkaTemplate) {
+        this.kafkaTemplate = kafkaTemplate;
+    }
+
+    public void publishCreated(SampleResponse sample) {
+        kafkaTemplate.send(TOPIC_SAMPLE_CREATED, sample.id().toString(), sample)
+            .whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.error("Failed to publish sample.created: id={}", sample.id(), ex);
+                } else {
+                    log.info("Published sample.created: id={}, offset={}",
+                        sample.id(), result.getRecordMetadata().offset());
+                }
+            });
+    }
+
+    public void publishUpdated(SampleResponse sample) {
+        kafkaTemplate.send(TOPIC_SAMPLE_UPDATED, sample.id().toString(), sample)
+            .whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.error("Failed to publish sample.updated: id={}", sample.id(), ex);
+                } else {
+                    log.info("Published sample.updated: id={}, offset={}",
+                        sample.id(), result.getRecordMetadata().offset());
+                }
+            });
+    }
+
+    public void publishDeleted(String sampleId) {
+        kafkaTemplate.send(TOPIC_SAMPLE_DELETED, sampleId, null)
+            .whenComplete((result, ex) -> {
+                if (ex != null) {
+                    log.error("Failed to publish sample.deleted: id={}", sampleId, ex);
+                } else {
+                    log.info("Published sample.deleted: id={}, offset={}",
+                        sampleId, result.getRecordMetadata().offset());
+                }
+            });
+    }
+}
+<%_ } else if (messaging === 'Azure Service Bus') { -%>
+package <%= packageName %>.messaging.producer;
+
+import <%= packageName %>.dto.response.SampleResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+/**
+ * Publishes sample domain events to Azure Service Bus.
+ *
+ * <p>Replace with your actual domain event producer (e.g., AccountEventProducer).
+ * Wire in ServiceBusSenderClient from spring-cloud-azure-starter-servicebus.</p>
+ */
+@Component
+public class SampleEventProducer {
+
+    private static final Logger log = LoggerFactory.getLogger(SampleEventProducer.class);
+
+    private final ObjectMapper objectMapper;
+
+    public SampleEventProducer(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
+
+    public void publishCreated(SampleResponse sample) {
+        log.info("Publishing sample.created to Service Bus: id={}", sample.id());
+        // TODO: Wire ServiceBusSenderClient and send message
+        // ServiceBusMessage message = new ServiceBusMessage(objectMapper.writeValueAsString(sample));
+        // message.setSubject("sample.created");
+        // senderClient.sendMessage(message);
+    }
+
+    public void publishUpdated(SampleResponse sample) {
+        log.info("Publishing sample.updated to Service Bus: id={}", sample.id());
+        // TODO: Wire ServiceBusSenderClient and send message
+    }
+
+    public void publishDeleted(String sampleId) {
+        log.info("Publishing sample.deleted to Service Bus: id={}", sampleId);
+        // TODO: Wire ServiceBusSenderClient and send message
+    }
+}
+<%_ } -%>

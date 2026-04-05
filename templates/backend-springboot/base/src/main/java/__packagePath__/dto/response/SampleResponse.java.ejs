@@ -1,0 +1,21 @@
+package <%= packageName %>.dto.response;
+
+import java.time.Instant;
+import java.util.UUID;
+
+/**
+ * Outbound DTO for returning Sample data to API consumers.
+ * Uses Java record — immutable, compact, no boilerplate.
+ * Never expose entity internals (version, updatedBy) — curate what the client sees.
+ *
+ * <p>Replace with your actual domain response (e.g., AccountResponse).</p>
+ */
+public record SampleResponse(
+    UUID id,
+    String code,
+    String name,
+    String description,
+    String status,
+    Instant createdAt,
+    Instant updatedAt
+) {}

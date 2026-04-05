@@ -1,5 +1,9 @@
 package <%= packageName %>.fixture;
 
+import <%= packageName %>.domain.entity.SampleEntity;
+import <%= packageName %>.dto.request.SampleRequest;
+import <%= packageName %>.dto.response.SampleResponse;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -8,17 +12,49 @@ import java.util.UUID;
  *
  * <p>Usage:
  * <pre>
- *   var account = TestDataFactory.anAccount().build();
- *   var account = TestDataFactory.anAccount().withStatus("FROZEN").build();
+ *   var request = TestDataFactory.aSampleRequest();
+ *   var response = TestDataFactory.aSampleResponse();
+ *   var entity = TestDataFactory.aSampleEntity();
  * </pre>
  */
 public final class TestDataFactory {
 
     private TestDataFactory() {}
 
-    // --- Add entity builder methods here as features are implemented ---
-    // Example:
-    // public static AccountBuilder anAccount() { return new AccountBuilder(); }
+    // --- Sample ---
+
+    /**
+     * Default SampleRequest for test scenarios.
+     */
+    public static SampleRequest aSampleRequest() {
+        return new SampleRequest("SMPL-001", "Test Sample", "A sample for testing");
+    }
+
+    /**
+     * Default SampleResponse for test scenarios.
+     */
+    public static SampleResponse aSampleResponse() {
+        return new SampleResponse(
+            testId(1),
+            "SMPL-001",
+            "Test Sample",
+            "A sample for testing",
+            "ACTIVE",
+            testTimestamp(),
+            testTimestamp()
+        );
+    }
+
+    /**
+     * Default SampleEntity with ID pre-set (for mocked repository tests).
+     */
+    public static SampleEntity aSampleEntity() {
+        SampleEntity entity = new SampleEntity("SMPL-001", "Test Sample", "A sample for testing");
+        entity.setId(testId(1));
+        return entity;
+    }
+
+    // --- Add more entity builder methods here as features are implemented ---
 
     /**
      * Generate a deterministic UUID for test reproducibility.

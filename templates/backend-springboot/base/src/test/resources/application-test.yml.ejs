@@ -3,30 +3,30 @@ spring:
     name: <%= projectName %>-test
   flyway:
     enabled: true
-<% if (messaging === 'Azure Service Bus') { %>
+<%_ if (messaging === 'Azure Service Bus') { -%>
   cloud:
     azure:
       servicebus:
         namespace: test-namespace
         entity-type: queue
-<% } %>
-<% if (messaging === 'Kafka') { %>
+<%_ } -%>
+<%_ if (messaging === 'Kafka') { -%>
   kafka:
     bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}
-<% } %>
-<% if (authPattern === 'OAuth2 + Azure AD') { %>
+<%_ } -%>
+<%_ if (authPattern === 'OAuth2 + Azure AD') { -%>
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: https://login.microsoftonline.com/test-tenant-id/v2.0
-<% } else if (authPattern === 'JWT') { %>
+<%_ } else if (authPattern === 'JWT') { -%>
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: https://test-issuer.example.com
-<% } %>
+<%_ } -%>
 
 management:
   endpoint:

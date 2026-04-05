@@ -3,10 +3,10 @@ spring:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
-<% if (messaging === 'Kafka') { %>
+<%_ if (messaging === 'Kafka') { -%>
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-<% } %>
+<%_ } -%>
 
 logging:
   level:

@@ -804,7 +804,13 @@ console.log('╚═════════════════════�
         runtime: 'java',
       },
       required: ['pom.xml', 'Dockerfile', 'application.yml', '.gitignore'],
-      requiredPatterns: ['Application.java', 'SecurityConfig.java'],
+      requiredPatterns: ['Application.java', 'SecurityConfig.java',
+        'SampleController.java', 'SampleService.java', 'SampleServiceImpl.java',
+        'SampleEntity.java', 'SampleRepository.java', 'SampleMapper.java',
+        'SampleRequest.java', 'SampleResponse.java', 'SampleSpecification.java',
+        'V1__create_sample_table.sql', 'TestDataFactory.java',
+        'SampleControllerTest.java', 'SampleServiceImplTest.java',
+        'SampleRepositoryTest.java', 'SampleIntegrationTest.java'],
     },
     {
       id: 'bff-springboot',
@@ -894,10 +900,98 @@ console.log('╚═════════════════════�
 }
 
 // ──────────────────────────────────────────────
-// SUITE 11: AI TRACE SWEEP (DEC-056)
+// SUITE 11: SAMPLE VERTICAL SLICE PERMUTATIONS
 // ──────────────────────────────────────────────
 console.log('\n╔══════════════════════════════════════════════╗');
-console.log('║  SUITE 11: AI TRACE SWEEP (ALL SOURCES)        ║');
+console.log('║  SUITE 11: SAMPLE VERTICAL SLICE               ║');
+console.log('╚══════════════════════════════════════════════╝\n');
+
+{
+  const suite = 'sample-slice';
+
+  const permutations = [
+    { authPattern: 'None', messaging: 'None' },
+    { authPattern: 'None', messaging: 'Kafka' },
+    { authPattern: 'None', messaging: 'Azure Service Bus' },
+    { authPattern: 'JWT', messaging: 'None' },
+    { authPattern: 'OAuth2 + Azure AD', messaging: 'Kafka' },
+    { authPattern: 'JWT', messaging: 'Azure Service Bus' },
+  ];
+
+  for (const perm of permutations) {
+    const label = `auth=${perm.authPattern}, msg=${perm.messaging}`;
+
+    const files = compose({
+      templateId: 'backend-springboot',
+      variables: {
+        projectName: 'perm-test', className: 'PermTest',
+        packageName: 'com.test.permtest', packagePath: 'com/test/permtest',
+        groupId: 'com.test', artifactName: 'permtest',
+        authPattern: perm.authPattern, messaging: perm.messaging,
+        runtime: 'java',
+      },
+      layers: [],
+    });
+
+    const paths = files.map(f => f.path);
+    const contentMap = Object.fromEntries(files.map(f => [f.path, f.content]));
+
+    // Controller should always exist
+    const ctrlPath = paths.find(p => p.includes('SampleController.java'));
+    assert(ctrlPath, suite, `[${label}] SampleController exists`);
+
+    // Check @PreAuthorize annotation present when auth is not None
+    // Use regex to match actual annotation usage (not Javadoc comments)
+    if (ctrlPath && contentMap[ctrlPath]) {
+      const hasPreAuth = /^\s+@PreAuthorize/m.test(contentMap[ctrlPath]);
+      if (perm.authPattern !== 'None') {
+        assert(hasPreAuth, suite, `[${label}] controller has @PreAuthorize`);
+      } else {
+        assert(!hasPreAuth, suite, `[${label}] controller omits @PreAuthorize`);
+      }
+    }
+
+    // Messaging files: should exist only when messaging != None
+    const producerPath = paths.find(p => p.includes('SampleEventProducer.java'));
+    const consumerPath = paths.find(p => p.includes('SampleEventConsumer.java'));
+
+    if (perm.messaging !== 'None') {
+      assert(producerPath, suite, `[${label}] SampleEventProducer exists`);
+      assert(consumerPath, suite, `[${label}] SampleEventConsumer exists`);
+
+      // Verify non-empty content
+      if (producerPath) {
+        assert(contentMap[producerPath].trim().length > 50, suite,
+          `[${label}] SampleEventProducer has content`);
+      }
+    } else {
+      // When messaging=None, the EJS files should render to empty (or not exist)
+      if (producerPath) {
+        assert(contentMap[producerPath].trim().length === 0, suite,
+          `[${label}] SampleEventProducer is empty when messaging=None`);
+      } else {
+        record(suite, `[${label}] SampleEventProducer correctly absent`, 'PASS');
+      }
+    }
+
+    // Integration test: should have @WithMockUser when auth != None
+    const integPath = paths.find(p => p.includes('SampleIntegrationTest.java'));
+    if (integPath && contentMap[integPath]) {
+      const hasWithMock = contentMap[integPath].includes('@WithMockUser');
+      if (perm.authPattern !== 'None') {
+        assert(hasWithMock, suite, `[${label}] integration test has @WithMockUser`);
+      } else {
+        assert(!hasWithMock, suite, `[${label}] integration test omits @WithMockUser`);
+      }
+    }
+  }
+}
+
+// ──────────────────────────────────────────────
+// SUITE 12: AI TRACE SWEEP (DEC-056)
+// ──────────────────────────────────────────────
+console.log('\n╔══════════════════════════════════════════════╗');
+console.log('║  SUITE 12: AI TRACE SWEEP (ALL SOURCES)        ║');
 console.log('╚══════════════════════════════════════════════╝\n');
 
 {

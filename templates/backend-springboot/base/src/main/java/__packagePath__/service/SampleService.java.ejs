@@ -1,0 +1,29 @@
+package <%= packageName %>.service;
+
+import <%= packageName %>.dto.request.SampleRequest;
+import <%= packageName %>.dto.response.SampleResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
+import java.util.UUID;
+
+/**
+ * Service interface for Sample domain operations.
+ * Program to interfaces — implementations can be swapped or mocked in tests.
+ *
+ * <p>Replace with your actual domain service (e.g., AccountService).</p>
+ */
+public interface SampleService {
+
+    SampleResponse create(SampleRequest request);
+
+    SampleResponse getById(UUID id);
+
+    SampleResponse getByCode(String code);
+
+    Page<SampleResponse> search(String keyword, Pageable pageable);
+
+    SampleResponse update(UUID id, SampleRequest request);
+
+    void delete(UUID id);
+}

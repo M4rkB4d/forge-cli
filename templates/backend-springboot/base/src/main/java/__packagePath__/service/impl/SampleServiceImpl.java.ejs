@@ -1,0 +1,120 @@
+package <%= packageName %>.service.impl;
+
+import <%= packageName %>.domain.entity.SampleEntity;
+import <%= packageName %>.dto.request.SampleRequest;
+import <%= packageName %>.dto.response.SampleResponse;
+import <%= packageName %>.exception.DuplicateResourceException;
+import <%= packageName %>.exception.ResourceNotFoundException;
+import <%= packageName %>.mapper.SampleMapper;
+import <%= packageName %>.repository.SampleRepository;
+import <%= packageName %>.service.SampleService;
+import <%= packageName %>.specification.SampleSpecification;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
+
+/**
+ * Implementation of SampleService demonstrating recommended patterns:
+ * - Transactional boundaries at service layer (not controller)
+ * - Resilience4j annotations for fault tolerance
+ * - Specification-based dynamic queries
+ * - Proper exception usage from the exception hierarchy
+ * - Logging with correlation context (MDC via CorrelationIdFilter)
+ *
+ * <p>Replace with your actual domain service (e.g., AccountServiceImpl).</p>
+ */
+@Service
+@Transactional(readOnly = true)
+public class SampleServiceImpl implements SampleService {
+
+    private static final Logger log = LoggerFactory.getLogger(SampleServiceImpl.class);
+
+    private final SampleRepository sampleRepository;
+
+    public SampleServiceImpl(SampleRepository sampleRepository) {
+        this.sampleRepository = sampleRepository;
+    }
+
+    @Override
+    @Transactional
+    public SampleResponse create(SampleRequest request) {
+        if (sampleRepository.existsByCode(request.code())) {
+            throw new DuplicateResourceException("Sample", "code", request.code());
+        }
+
+        SampleEntity entity = SampleMapper.toEntity(request);
+        entity = sampleRepository.save(entity);
+
+        log.info("Created sample: code={}", entity.getCode());
+        return SampleMapper.toResponse(entity);
+    }
+
+    @Override
+    @CircuitBreaker(name = "default", fallbackMethod = "getByIdFallback")
+    public SampleResponse getById(UUID id) {
+        SampleEntity entity = sampleRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Sample", "id", id.toString()));
+        return SampleMapper.toResponse(entity);
+    }
+
+    @Override
+    public SampleResponse getByCode(String code) {
+        SampleEntity entity = sampleRepository.findByCode(code)
+            .orElseThrow(() -> new ResourceNotFoundException("Sample", "code", code));
+        return SampleMapper.toResponse(entity);
+    }
+
+    @Override
+    public Page<SampleResponse> search(String keyword, Pageable pageable) {
+        Specification<SampleEntity> spec = Specification.where(
+            SampleSpecification.hasStatus(SampleEntity.SampleStatus.ACTIVE)
+        );
+
+        if (keyword != null && !keyword.isBlank()) {
+            spec = spec.and(SampleSpecification.nameContains(keyword));
+        }
+
+        return sampleRepository.findAll(spec, pageable)
+            .map(SampleMapper::toResponse);
+    }
+
+    @Override
+    @Transactional
+    @Retry(name = "default")
+    public SampleResponse update(UUID id, SampleRequest request) {
+        SampleEntity entity = sampleRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Sample", "id", id.toString()));
+
+        SampleMapper.updateEntity(entity, request);
+        entity = sampleRepository.save(entity);
+
+        log.info("Updated sample: id={}, code={}", id, entity.getCode());
+        return SampleMapper.toResponse(entity);
+    }
+
+    @Override
+    @Transactional
+    public void delete(UUID id) {
+        if (!sampleRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Sample", "id", id.toString());
+        }
+        sampleRepository.deleteById(id);
+        log.info("Deleted sample: id={}", id);
+    }
+
+    // --- Fallback methods ---
+
+    @SuppressWarnings("unused")
+    private SampleResponse getByIdFallback(UUID id, Throwable t) {
+        log.warn("Circuit breaker fallback for getById: id={}, error={}", id, t.getMessage());
+        throw new ResourceNotFoundException("Sample", "id", id.toString());
+    }
+}

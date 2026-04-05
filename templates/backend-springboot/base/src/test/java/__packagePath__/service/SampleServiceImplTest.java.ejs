@@ -1,0 +1,231 @@
+package <%= packageName %>.service;
+
+import <%= packageName %>.domain.entity.SampleEntity;
+import <%= packageName %>.dto.request.SampleRequest;
+import <%= packageName %>.dto.response.SampleResponse;
+import <%= packageName %>.exception.DuplicateResourceException;
+import <%= packageName %>.exception.ResourceNotFoundException;
+import <%= packageName %>.fixture.TestDataFactory;
+import <%= packageName %>.repository.SampleRepository;
+import <%= packageName %>.service.impl.SampleServiceImpl;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+/**
+ * Unit tests for SampleServiceImpl.
+ * Tests business logic in isolation — repository is mocked.
+ *
+ * <p>Pattern: {@code @ExtendWith(MockitoExtension.class)} for pure unit tests,
+ * no Spring context loaded. Fast, focused, one concern per test.</p>
+ */
+@ExtendWith(MockitoExtension.class)
+class SampleServiceImplTest {
+
+    @Mock
+    private SampleRepository sampleRepository;
+
+    @InjectMocks
+    private SampleServiceImpl sampleService;
+
+    @Nested
+    @DisplayName("create")
+    class Create {
+
+        @Test
+        @DisplayName("should create sample when code is unique")
+        void should_create_when_code_unique() {
+            SampleRequest request = TestDataFactory.aSampleRequest();
+            SampleEntity entity = TestDataFactory.aSampleEntity();
+
+            when(sampleRepository.existsByCode(request.code())).thenReturn(false);
+            when(sampleRepository.save(any(SampleEntity.class))).thenReturn(entity);
+
+            SampleResponse result = sampleService.create(request);
+
+            assertThat(result).isNotNull();
+            assertThat(result.code()).isEqualTo(entity.getCode());
+            assertThat(result.name()).isEqualTo(entity.getName());
+            verify(sampleRepository).save(any(SampleEntity.class));
+        }
+
+        @Test
+        @DisplayName("should throw DuplicateResourceException when code exists")
+        void should_throw_when_code_exists() {
+            SampleRequest request = TestDataFactory.aSampleRequest();
+            when(sampleRepository.existsByCode(request.code())).thenReturn(true);
+
+            assertThatThrownBy(() -> sampleService.create(request))
+                .isInstanceOf(DuplicateResourceException.class);
+
+            verify(sampleRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("getById")
+    class GetById {
+
+        @Test
+        @DisplayName("should return sample when found")
+        void should_return_when_found() {
+            SampleEntity entity = TestDataFactory.aSampleEntity();
+            UUID id = entity.getId();
+            when(sampleRepository.findById(id)).thenReturn(Optional.of(entity));
+
+            SampleResponse result = sampleService.getById(id);
+
+            assertThat(result).isNotNull();
+            assertThat(result.code()).isEqualTo(entity.getCode());
+        }
+
+        @Test
+        @DisplayName("should throw ResourceNotFoundException when not found")
+        void should_throw_when_not_found() {
+            UUID id = TestDataFactory.testId(999);
+            when(sampleRepository.findById(id)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> sampleService.getById(id))
+                .isInstanceOf(ResourceNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("getByCode")
+    class GetByCode {
+
+        @Test
+        @DisplayName("should return sample when found by code")
+        void should_return_when_found_by_code() {
+            SampleEntity entity = TestDataFactory.aSampleEntity();
+            when(sampleRepository.findByCode("SMPL-001")).thenReturn(Optional.of(entity));
+
+            SampleResponse result = sampleService.getByCode("SMPL-001");
+
+            assertThat(result).isNotNull();
+            assertThat(result.code()).isEqualTo("SMPL-001");
+        }
+
+        @Test
+        @DisplayName("should throw ResourceNotFoundException when code not found")
+        void should_throw_when_code_not_found() {
+            when(sampleRepository.findByCode("INVALID")).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> sampleService.getByCode("INVALID"))
+                .isInstanceOf(ResourceNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("search")
+    class Search {
+
+        @SuppressWarnings("unchecked")
+        @Test
+        @DisplayName("should return paginated results")
+        void should_return_paginated_results() {
+            SampleEntity entity = TestDataFactory.aSampleEntity();
+            Pageable pageable = PageRequest.of(0, 20);
+            when(sampleRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(entity)));
+
+            Page<SampleResponse> result = sampleService.search("test", pageable);
+
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().getFirst().code()).isEqualTo(entity.getCode());
+        }
+
+        @SuppressWarnings("unchecked")
+        @Test
+        @DisplayName("should search without keyword")
+        void should_search_without_keyword() {
+            Pageable pageable = PageRequest.of(0, 20);
+            when(sampleRepository.findAll(any(Specification.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+            Page<SampleResponse> result = sampleService.search(null, pageable);
+
+            assertThat(result.getContent()).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("update")
+    class Update {
+
+        @Test
+        @DisplayName("should update existing sample")
+        void should_update_existing_sample() {
+            SampleEntity entity = TestDataFactory.aSampleEntity();
+            UUID id = entity.getId();
+            SampleRequest request = TestDataFactory.aSampleRequest();
+
+            when(sampleRepository.findById(id)).thenReturn(Optional.of(entity));
+            when(sampleRepository.save(entity)).thenReturn(entity);
+
+            SampleResponse result = sampleService.update(id, request);
+
+            assertThat(result).isNotNull();
+            verify(sampleRepository).save(entity);
+        }
+
+        @Test
+        @DisplayName("should throw ResourceNotFoundException when updating non-existent")
+        void should_throw_when_updating_non_existent() {
+            UUID id = TestDataFactory.testId(999);
+            SampleRequest request = TestDataFactory.aSampleRequest();
+            when(sampleRepository.findById(id)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> sampleService.update(id, request))
+                .isInstanceOf(ResourceNotFoundException.class);
+        }
+    }
+
+    @Nested
+    @DisplayName("delete")
+    class Delete {
+
+        @Test
+        @DisplayName("should delete existing sample")
+        void should_delete_existing_sample() {
+            UUID id = TestDataFactory.testId(1);
+            when(sampleRepository.existsById(id)).thenReturn(true);
+
+            sampleService.delete(id);
+
+            verify(sampleRepository).deleteById(id);
+        }
+
+        @Test
+        @DisplayName("should throw ResourceNotFoundException when deleting non-existent")
+        void should_throw_when_deleting_non_existent() {
+            UUID id = TestDataFactory.testId(999);
+            when(sampleRepository.existsById(id)).thenReturn(false);
+
+            assertThatThrownBy(() -> sampleService.delete(id))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+            verify(sampleRepository, never()).deleteById(any());
+        }
+    }
+}

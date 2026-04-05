@@ -1,0 +1,80 @@
+package <%= packageName %>.domain.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import jakarta.persistence.Index;
+
+/**
+ * Sample entity demonstrating the recommended JPA entity pattern.
+ * Extends BaseEntity for UUID primary key, auditing, and optimistic locking.
+ *
+ * <p>Replace or rename this entity to match your domain (e.g., Account, Order, Product).
+ * This serves as a working reference — delete it once you've built your own entities.</p>
+ */
+@Entity
+@Table(name = "samples", indexes = {
+    @Index(name = "idx_sample_code", columnList = "code", unique = true)
+})
+public class SampleEntity extends BaseEntity {
+
+    @Column(nullable = false, unique = true, length = 20)
+    private String code;
+
+    @Column(nullable = false, length = 100)
+    private String name;
+
+    @Column(length = 500)
+    private String description;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private SampleStatus status = SampleStatus.ACTIVE;
+
+    protected SampleEntity() {
+        // JPA requires a no-arg constructor
+    }
+
+    public SampleEntity(String code, String name, String description) {
+        this.code = code;
+        this.name = name;
+        this.description = description;
+        this.status = SampleStatus.ACTIVE;
+    }
+
+    // --- Business methods ---
+
+    public void deactivate() {
+        this.status = SampleStatus.INACTIVE;
+    }
+
+    public void activate() {
+        this.status = SampleStatus.ACTIVE;
+    }
+
+    public boolean isActive() {
+        return this.status == SampleStatus.ACTIVE;
+    }
+
+    // --- Getters and setters ---
+
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public SampleStatus getStatus() { return status; }
+    public void setStatus(SampleStatus status) { this.status = status; }
+
+    // --- Enum ---
+
+    public enum SampleStatus {
+        ACTIVE, INACTIVE
+    }
+}

@@ -1,0 +1,29 @@
+package <%= packageName %>.repository;
+
+import <%= packageName %>.domain.entity.SampleEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * Spring Data JPA repository for SampleEntity.
+ * Extends JpaSpecificationExecutor for dynamic queries via Specifications.
+ *
+ * <p>Derived query methods generate optimized JPQL in Spring Data 2025.1.
+ * Replace with your actual domain repository (e.g., AccountRepository).</p>
+ */
+@Repository
+public interface SampleRepository extends JpaRepository<SampleEntity, UUID>,
+                                          JpaSpecificationExecutor<SampleEntity> {
+
+    Optional<SampleEntity> findByCode(String code);
+
+    Page<SampleEntity> findByStatus(SampleEntity.SampleStatus status, Pageable pageable);
+
+    boolean existsByCode(String code);
+}

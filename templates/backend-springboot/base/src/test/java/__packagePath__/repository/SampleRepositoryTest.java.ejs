@@ -1,0 +1,88 @@
+package <%= packageName %>.repository;
+
+import <%= packageName %>.domain.entity.SampleEntity;
+import <%= packageName %>.integration.BaseIntegrationTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Repository integration tests using TestContainers (SQL Server).
+ * Extends BaseIntegrationTest for shared container lifecycle.
+ *
+ * <p>Pattern: Tests run against a real SQL Server via TestContainers.
+ * Flyway migrations are applied automatically. Each test gets a clean
+ * transaction (rolled back by default in {@code @SpringBootTest}).</p>
+ */
+class SampleRepositoryTest extends BaseIntegrationTest {
+
+    @Autowired
+    private SampleRepository sampleRepository;
+
+    private SampleEntity savedEntity;
+
+    @BeforeEach
+    void setUp() {
+        sampleRepository.deleteAll();
+        SampleEntity entity = new SampleEntity("SMPL-001", "Test Sample", "A test sample");
+        savedEntity = sampleRepository.save(entity);
+    }
+
+    @Test
+    @DisplayName("should find sample by code")
+    void should_find_by_code() {
+        Optional<SampleEntity> result = sampleRepository.findByCode("SMPL-001");
+
+        assertThat(result).isPresent();
+        assertThat(result.get().getName()).isEqualTo("Test Sample");
+    }
+
+    @Test
+    @DisplayName("should return empty when code not found")
+    void should_return_empty_when_code_not_found() {
+        Optional<SampleEntity> result = sampleRepository.findByCode("NONEXISTENT");
+
+        assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should check existence by code")
+    void should_check_exists_by_code() {
+        assertThat(sampleRepository.existsByCode("SMPL-001")).isTrue();
+        assertThat(sampleRepository.existsByCode("NONEXISTENT")).isFalse();
+    }
+
+    @Test
+    @DisplayName("should find samples by status")
+    void should_find_by_status() {
+        Page<SampleEntity> result = sampleRepository.findByStatus(
+            SampleEntity.SampleStatus.ACTIVE, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getContent().getFirst().getCode()).isEqualTo("SMPL-001");
+    }
+
+    @Test
+    @DisplayName("should return empty page for inactive status when all active")
+    void should_return_empty_for_inactive() {
+        Page<SampleEntity> result = sampleRepository.findByStatus(
+            SampleEntity.SampleStatus.INACTIVE, PageRequest.of(0, 20));
+
+        assertThat(result.getContent()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("should persist and retrieve with audit fields populated")
+    void should_have_audit_fields() {
+        assertThat(savedEntity.getId()).isNotNull();
+        assertThat(savedEntity.getCreatedAt()).isNotNull();
+        assertThat(savedEntity.getUpdatedAt()).isNotNull();
+    }
+}

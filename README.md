@@ -1,6 +1,6 @@
 # Forge CLI
 
-Project scaffolding tool that generates production-grade, org-standard starter projects. One command, fully working code — compiles, passes type checks, and follows enterprise patterns out of the box.
+Project scaffolding tool that generates production-grade, org-standard starter projects. One command, fully working code — compiles, passes type checks, includes a working CRUD example, and follows enterprise patterns out of the box.
 
 ## Prerequisites
 
@@ -177,12 +177,36 @@ order-service/
       java/com/company/orderservice/
         OrderServiceApplication.java
         config/
-          SecurityConfig.java          # always present (security headers, CORS)
-          JpaConfig.java               # auditing
-          OpenApiConfig.java           # Swagger/OpenAPI
-          WebMvcConfig.java            # Jackson 3 settings
+          SecurityConfig.java            # always present (security headers, CORS)
+          JpaConfig.java                 # auditing
+          OpenApiConfig.java             # Swagger/OpenAPI
+          WebMvcConfig.java              # Jackson 3 settings
+          KafkaHealthIndicator.java      # only if messaging = Kafka
+        controller/
+          SampleController.java          # CRUD example at /api/v1/samples
+        service/
+          SampleService.java             # service interface
+          impl/
+            SampleServiceImpl.java       # @Transactional, Resilience4j
+        repository/
+          SampleRepository.java          # Spring Data JPA + Specifications
         domain/entity/
-          BaseEntity.java
+          BaseEntity.java                # UUID PK, audit fields, optimistic locking
+          SampleEntity.java              # example entity with business methods
+        dto/
+          request/
+            SampleRequest.java           # validated input DTO (Java record)
+          response/
+            SampleResponse.java          # output DTO (Java record)
+        mapper/
+          SampleMapper.java              # entity <-> DTO conversion
+        specification/
+          SampleSpecification.java       # dynamic query composition
+        messaging/
+          producer/
+            SampleEventProducer.java     # only if messaging != None
+          consumer/
+            SampleEventConsumer.java     # only if messaging != None
         exception/
           BaseException.java
           BusinessException.java
@@ -190,7 +214,7 @@ order-service/
           DuplicateResourceException.java
           AuthorizationException.java
           ExternalServiceException.java
-          GlobalExceptionHandler.java
+          GlobalExceptionHandler.java    # RFC 7807 Problem Detail responses
         util/
           CorrelationIdFilter.java
           MaskingUtil.java
@@ -203,15 +227,24 @@ order-service/
         application-prod.yml
         logback-spring.xml
         db/migration/
-          V1__init.sql                 # only with azure-sql layer
+          V1__create_sample_table.sql
     test/
       java/com/company/orderservice/
+        OrderServiceApplicationTests.java
         config/
-          TestContainersConfig.java    # SQL Server via Docker
+          TestContainersConfig.java      # SQL Server via Docker
         controller/
           ActuatorHealthTest.java
+          SampleControllerTest.java      # @WebMvcTest — HTTP layer only
+        service/
+          SampleServiceImplTest.java     # Mockito unit tests
+        repository/
+          SampleRepositoryTest.java      # integration test with real DB
         integration/
           BaseIntegrationTest.java
+          SampleIntegrationTest.java     # full CRUD lifecycle test
+        fixture/
+          TestDataFactory.java           # centralized test data builders
       resources/
         application-test.yml
 ```
@@ -239,11 +272,12 @@ admin-portal/
 
 ## After Generation
 
-```bash
+```
 cd my-service
 
 # Spring Boot — requires Docker for SQL Server
-docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=YourStr0ngP@ss" -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
+docker run -d --name my-service-sqlserver -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=LocalDev123!" -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
+docker exec my-service-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "LocalDev123!" -Q "CREATE DATABASE [my-service]" -C
 mvn spring-boot:run -Dspring-boot.run.profiles=local
 mvn test                           # runs with TestContainers (Docker required)
 
@@ -274,7 +308,7 @@ The `groupId` (e.g., `com.company`) is set during the prompts for Java templates
 # Quick smoke test (6 tests)
 node tests/smoke.js
 
-# Unit + integration tests (~150 tests)
+# Unit + integration tests (~200 tests)
 node tests/unit.js
 
 # Full generation + build verification (requires Java + Maven + Docker)

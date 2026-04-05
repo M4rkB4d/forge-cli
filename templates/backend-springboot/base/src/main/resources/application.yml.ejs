@@ -11,21 +11,21 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
-<% if (authPattern === 'OAuth2 + Azure AD') { %>
+<%_ if (authPattern === 'OAuth2 + Azure AD') { -%>
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
           audiences: ${AZURE_CLIENT_ID}
-<% } else if (authPattern === 'JWT') { %>
+<%_ } else if (authPattern === 'JWT') { -%>
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: ${JWT_ISSUER_URI}
-<% } %>
-<% if (messaging === 'Kafka') { %>
+<%_ } -%>
+<%_ if (messaging === 'Kafka') { -%>
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
     producer:
@@ -47,14 +47,14 @@ spring:
     listener:
       ack-mode: manual_immediate
       concurrency: 3
-<% } %>
-<% if (messaging === 'Azure Service Bus') { %>
+<%_ } -%>
+<%_ if (messaging === 'Azure Service Bus') { -%>
   cloud:
     azure:
       servicebus:
         namespace: ${SERVICEBUS_NAMESPACE}
         entity-type: queue
-<% } %>
+<%_ } -%>
 
 server:
   port: ${SERVER_PORT:8080}
@@ -72,9 +72,9 @@ management:
         readiness:
           include:
             - db
-<% if (messaging === 'Kafka') { %>
+<%_ if (messaging === 'Kafka') { -%>
             - kafkaHealth
-<% } %>
+<%_ } -%>
         liveness:
           include:
             - livenessState

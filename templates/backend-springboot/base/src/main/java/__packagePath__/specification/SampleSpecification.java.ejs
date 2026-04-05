@@ -1,0 +1,34 @@
+package <%= packageName %>.specification;
+
+import <%= packageName %>.domain.entity.SampleEntity;
+import org.springframework.data.jpa.domain.Specification;
+
+/**
+ * JPA Specifications for dynamic SampleEntity queries.
+ * Compose specifications with .and() / .or() for flexible filtering.
+ *
+ * <p>Usage in service:
+ * {@code repository.findAll(SampleSpecification.hasStatus(ACTIVE).and(nameContains("foo")), pageable);}
+ * </p>
+ *
+ * <p>Replace with your actual domain specifications (e.g., AccountSpecification).</p>
+ */
+public final class SampleSpecification {
+
+    private SampleSpecification() {
+        // Utility class — no instantiation
+    }
+
+    public static Specification<SampleEntity> hasStatus(SampleEntity.SampleStatus status) {
+        return (root, query, cb) -> cb.equal(root.get("status"), status);
+    }
+
+    public static Specification<SampleEntity> nameContains(String keyword) {
+        return (root, query, cb) ->
+            cb.like(cb.lower(root.get("name")), "%" + keyword.toLowerCase() + "%");
+    }
+
+    public static Specification<SampleEntity> codeEquals(String code) {
+        return (root, query, cb) -> cb.equal(root.get("code"), code);
+    }
+}

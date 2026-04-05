@@ -5,10 +5,10 @@ spring:
     password: ${DATABASE_PASSWORD}
   flyway:
     clean-disabled: true
-<% if (messaging === 'Kafka') { %>
+<%_ if (messaging === 'Kafka') { -%>
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-<% } %>
+<%_ } -%>
 
 logging:
   level:

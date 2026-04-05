@@ -9,4 +9,12 @@ public class ResourceNotFoundException extends BaseException {
             resourceType + " not found with id: " + id
         );
     }
+
+    public ResourceNotFoundException(String resourceType, String field, String value) {
+        super(
+            resourceType.toUpperCase().substring(0, Math.min(4, resourceType.length())) + "-404",
+            404,
+            resourceType + " not found with " + field + ": " + value
+        );
+    }
 }

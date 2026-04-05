@@ -5,4 +5,12 @@ public class DuplicateResourceException extends BaseException {
     public DuplicateResourceException(String errorCode, String message) {
         super(errorCode, 409, message);
     }
+
+    public DuplicateResourceException(String resourceType, String field, String value) {
+        super(
+            resourceType.toUpperCase().substring(0, Math.min(4, resourceType.length())) + "-409",
+            409,
+            resourceType + " already exists with " + field + ": " + value
+        );
+    }
 }

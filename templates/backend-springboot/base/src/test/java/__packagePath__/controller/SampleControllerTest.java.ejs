@@ -1,0 +1,228 @@
+package <%= packageName %>.controller;
+
+import <%= packageName %>.dto.request.SampleRequest;
+import <%= packageName %>.dto.response.SampleResponse;
+import <%= packageName %>.exception.ResourceNotFoundException;
+import <%= packageName %>.fixture.TestDataFactory;
+import <%= packageName %>.service.SampleService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
+<%_ if (authPattern !== 'None') { -%>
+import org.springframework.security.test.context.support.WithMockUser;
+<%_ } -%>
+
+import java.util.List;
+import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * Controller slice tests for SampleController.
+ * Tests HTTP layer only — service is mocked.
+ *
+ * <p>Pattern: {@code @WebMvcTest} loads only the web layer (no DB, no Kafka).
+ * Each test verifies: HTTP method, status code, response body, validation, auth.</p>
+ */
+@WebMvcTest(SampleController.class)
+class SampleControllerTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @MockitoBean
+    private SampleService sampleService;
+
+    private static final String BASE_URL = "/api/v1/samples";
+
+    @Nested
+    @DisplayName("POST /api/v1/samples")
+    class Create {
+
+        @Test
+<%_ if (authPattern !== 'None') { -%>
+        @WithMockUser
+<%_ } -%>
+        @DisplayName("should create sample and return 201 with Location header")
+        void should_create_sample() throws Exception {
+            SampleRequest request = TestDataFactory.aSampleRequest();
+            SampleResponse response = TestDataFactory.aSampleResponse();
+
+            when(sampleService.create(any(SampleRequest.class))).thenReturn(response);
+
+            mockMvc.perform(post(BASE_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(header().exists("Location"))
+                .andExpect(jsonPath("$.id").value(response.id().toString()))
+                .andExpect(jsonPath("$.code").value(response.code()))
+                .andExpect(jsonPath("$.name").value(response.name()));
+        }
+
+        @Test
+<%_ if (authPattern !== 'None') { -%>
+        @WithMockUser
+<%_ } -%>
+        @DisplayName("should return 400 when request body is invalid")
+        void should_return_400_for_invalid_request() throws Exception {
+            String invalidJson = """
+                {"code": "", "name": ""}
+                """;
+
+            mockMvc.perform(post(BASE_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(invalidJson))
+                .andExpect(status().isBadRequest());
+        }
+
+<%_ if (authPattern !== 'None') { -%>
+        @Test
+        @DisplayName("should return 401 when not authenticated")
+        void should_return_401_when_unauthenticated() throws Exception {
+            SampleRequest request = TestDataFactory.aSampleRequest();
+
+            mockMvc.perform(post(BASE_URL)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+        }
+<%_ } -%>
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/samples/{id}")
+    class GetById {
+
+        @Test
+<%_ if (authPattern !== 'None') { -%>
+        @WithMockUser
+<%_ } -%>
+        @DisplayName("should return sample by ID")
+        void should_return_sample_by_id() throws Exception {
+            SampleResponse response = TestDataFactory.aSampleResponse();
+            when(sampleService.getById(response.id())).thenReturn(response);
+
+            mockMvc.perform(get(BASE_URL + "/{id}", response.id()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(response.id().toString()))
+                .andExpect(jsonPath("$.code").value(response.code()));
+        }
+
+        @Test
+<%_ if (authPattern !== 'None') { -%>
+        @WithMockUser
+<%_ } -%>
+        @DisplayName("should return 404 when sample not found")
+        void should_return_404_when_not_found() throws Exception {
+            UUID id = TestDataFactory.testId(999);
+            when(sampleService.getById(id))
+                .thenThrow(new ResourceNotFoundException("Sample", "id", id.toString()));
+
+            mockMvc.perform(get(BASE_URL + "/{id}", id))
+                .andExpect(status().isNotFound());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/v1/samples")
+    class Search {
+
+        @Test
+<%_ if (authPattern !== 'None') { -%>
+        @WithMockUser
+<%_ } -%>
+        @DisplayName("should return paginated samples")
+        void should_return_paginated_samples() throws Exception {
+            SampleResponse response = TestDataFactory.aSampleResponse();
+            when(sampleService.search(any(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(response)));
+
+            mockMvc.perform(get(BASE_URL).param("keyword", "test"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].code").value(response.code()))
+                .andExpect(jsonPath("$.totalElements").value(1));
+        }
+    }
+
+    @Nested
+    @DisplayName("PUT /api/v1/samples/{id}")
+    class Update {
+
+        @Test
+<%_ if (authPattern !== 'None') { -%>
+        @WithMockUser
+<%_ } -%>
+        @DisplayName("should update sample and return 200")
+        void should_update_sample() throws Exception {
+            UUID id = TestDataFactory.testId(1);
+            SampleRequest request = TestDataFactory.aSampleRequest();
+            SampleResponse response = TestDataFactory.aSampleResponse();
+
+            when(sampleService.update(eq(id), any(SampleRequest.class))).thenReturn(response);
+
+            mockMvc.perform(put(BASE_URL + "/{id}", id)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(response.id().toString()));
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /api/v1/samples/{id}")
+    class Delete {
+
+        @Test
+<%_ if (authPattern !== 'None') { -%>
+        @WithMockUser
+<%_ } -%>
+        @DisplayName("should delete sample and return 204")
+        void should_delete_sample() throws Exception {
+            UUID id = TestDataFactory.testId(1);
+            doNothing().when(sampleService).delete(id);
+
+            mockMvc.perform(delete(BASE_URL + "/{id}", id))
+                .andExpect(status().isNoContent());
+
+            verify(sampleService).delete(id);
+        }
+
+        @Test
+<%_ if (authPattern !== 'None') { -%>
+        @WithMockUser
+<%_ } -%>
+        @DisplayName("should return 404 when deleting non-existent sample")
+        void should_return_404_when_deleting_non_existent() throws Exception {
+            UUID id = TestDataFactory.testId(999);
+            doThrow(new ResourceNotFoundException("Sample", "id", id.toString()))
+                .when(sampleService).delete(id);
+
+            mockMvc.perform(delete(BASE_URL + "/{id}", id))
+                .andExpect(status().isNotFound());
+        }
+    }
+}

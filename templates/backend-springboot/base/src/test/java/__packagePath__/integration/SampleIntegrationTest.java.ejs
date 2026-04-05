@@ -1,0 +1,156 @@
+package <%= packageName %>.integration;
+
+import <%= packageName %>.domain.entity.SampleEntity;
+import <%= packageName %>.repository.SampleRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+<%_ if (authPattern !== 'None') { -%>
+import org.springframework.security.test.context.support.WithMockUser;
+<%_ } -%>
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/**
+ * Full integration test for the Sample CRUD flow.
+ * Tests the entire stack: Controller → Service → Repository → SQL Server (TestContainers).
+ *
+ * <p>Pattern: end-to-end API tests with real database. Validates that all layers
+ * work together correctly, including validation, transactions, and error handling.</p>
+ */
+<%_ if (authPattern !== 'None') { -%>
+@WithMockUser
+<%_ } -%>
+class SampleIntegrationTest extends BaseIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private SampleRepository sampleRepository;
+
+    private static final String BASE_URL = "/api/v1/samples";
+
+    @BeforeEach
+    void setUp() {
+        sampleRepository.deleteAll();
+    }
+
+    @Test
+    @DisplayName("should complete full CRUD lifecycle")
+    void should_complete_crud_lifecycle() throws Exception {
+        // CREATE
+        String createJson = """
+            {
+                "code": "SMPL-001",
+                "name": "Integration Test Sample",
+                "description": "Created during integration test"
+            }
+            """;
+
+        String responseBody = mockMvc.perform(post(BASE_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(createJson))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.code").value("SMPL-001"))
+            .andExpect(jsonPath("$.name").value("Integration Test Sample"))
+            .andExpect(jsonPath("$.status").value("ACTIVE"))
+            .andReturn().getResponse().getContentAsString();
+
+        String id = objectMapper.readTree(responseBody).get("id").asText();
+
+        // READ by ID
+        mockMvc.perform(get(BASE_URL + "/{id}", id))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.code").value("SMPL-001"));
+
+        // READ by code
+        mockMvc.perform(get(BASE_URL + "/code/{code}", "SMPL-001"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("Integration Test Sample"));
+
+        // SEARCH
+        mockMvc.perform(get(BASE_URL).param("keyword", "Integration"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalElements").value(1));
+
+        // UPDATE
+        String updateJson = """
+            {
+                "code": "SMPL-001",
+                "name": "Updated Sample",
+                "description": "Updated during integration test"
+            }
+            """;
+
+        mockMvc.perform(put(BASE_URL + "/{id}", id)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(updateJson))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.name").value("Updated Sample"));
+
+        // DELETE
+        mockMvc.perform(delete(BASE_URL + "/{id}", id))
+            .andExpect(status().isNoContent());
+
+        // VERIFY DELETED
+        mockMvc.perform(get(BASE_URL + "/{id}", id))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("should return 409 when creating duplicate code")
+    void should_return_409_for_duplicate_code() throws Exception {
+        // Create first sample
+        sampleRepository.save(new SampleEntity("SMPL-DUP", "First", "First sample"));
+
+        // Try to create another with same code
+        String duplicateJson = """
+            {
+                "code": "SMPL-DUP",
+                "name": "Duplicate",
+                "description": "Should fail"
+            }
+            """;
+
+        mockMvc.perform(post(BASE_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(duplicateJson))
+            .andExpect(status().isConflict());
+    }
+
+    @Test
+    @DisplayName("should return 400 for invalid request body")
+    void should_return_400_for_invalid_request() throws Exception {
+        String invalidJson = """
+            {
+                "code": "",
+                "name": ""
+            }
+            """;
+
+        mockMvc.perform(post(BASE_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(invalidJson))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("should return 404 for non-existent sample")
+    void should_return_404_for_non_existent() throws Exception {
+        mockMvc.perform(get(BASE_URL + "/{id}", "00000000-0000-0000-0000-000000000000"))
+            .andExpect(status().isNotFound());
+    }
+}

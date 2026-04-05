@@ -1,0 +1,26 @@
+package <%= packageName %>.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+
+/**
+ * Inbound DTO for creating or updating a Sample.
+ * Uses Java record for immutability — no getters/setters needed.
+ * Validation annotations enforce constraints before reaching the service layer.
+ *
+ * <p>Replace with your actual domain request (e.g., CreateAccountRequest).</p>
+ */
+public record SampleRequest(
+
+    @NotBlank(message = "Code is required")
+    @Pattern(regexp = "^[A-Z0-9-]{3,20}$", message = "Code must be 3-20 uppercase alphanumeric characters or hyphens")
+    String code,
+
+    @NotBlank(message = "Name is required")
+    @Size(max = 100, message = "Name must not exceed 100 characters")
+    String name,
+
+    @Size(max = 500, message = "Description must not exceed 500 characters")
+    String description
+) {}

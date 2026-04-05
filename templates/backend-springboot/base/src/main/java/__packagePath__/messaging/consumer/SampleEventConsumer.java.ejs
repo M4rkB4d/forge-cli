@@ -1,0 +1,95 @@
+<%_ if (messaging === 'Kafka') { -%>
+package <%= packageName %>.messaging.consumer;
+
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.stereotype.Component;
+
+/**
+ * Consumes sample domain events from Kafka.
+ *
+ * <p>Demonstrates manual acknowledgment (ack-mode: manual_immediate)
+ * for at-least-once delivery semantics. Process the message fully
+ * before calling {@code ack.acknowledge()}.</p>
+ *
+ * <p>Replace with your actual domain event consumer (e.g., AccountEventConsumer).</p>
+ */
+@Component
+public class SampleEventConsumer {
+
+    private static final Logger log = LoggerFactory.getLogger(SampleEventConsumer.class);
+
+    @KafkaListener(topics = "sample.created", groupId = "${spring.application.name}")
+    public void onSampleCreated(ConsumerRecord<String, String> record, Acknowledgment ack) {
+        try {
+            log.info("Received sample.created: key={}, partition={}, offset={}",
+                record.key(), record.partition(), record.offset());
+
+            // TODO: Process the event — e.g., update read model, send notification, etc.
+
+            ack.acknowledge();
+        } catch (Exception e) {
+            log.error("Error processing sample.created: key={}", record.key(), e);
+            // Don't ack — message will be redelivered
+        }
+    }
+
+    @KafkaListener(topics = "sample.updated", groupId = "${spring.application.name}")
+    public void onSampleUpdated(ConsumerRecord<String, String> record, Acknowledgment ack) {
+        try {
+            log.info("Received sample.updated: key={}, partition={}, offset={}",
+                record.key(), record.partition(), record.offset());
+
+            // TODO: Process the event
+
+            ack.acknowledge();
+        } catch (Exception e) {
+            log.error("Error processing sample.updated: key={}", record.key(), e);
+        }
+    }
+
+    @KafkaListener(topics = "sample.deleted", groupId = "${spring.application.name}")
+    public void onSampleDeleted(ConsumerRecord<String, String> record, Acknowledgment ack) {
+        try {
+            log.info("Received sample.deleted: key={}, partition={}, offset={}",
+                record.key(), record.partition(), record.offset());
+
+            // TODO: Process the event
+
+            ack.acknowledge();
+        } catch (Exception e) {
+            log.error("Error processing sample.deleted: key={}", record.key(), e);
+        }
+    }
+}
+<%_ } else if (messaging === 'Azure Service Bus') { -%>
+package <%= packageName %>.messaging.consumer;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+
+/**
+ * Consumes sample domain events from Azure Service Bus.
+ *
+ * <p>Replace with your actual domain event consumer (e.g., AccountEventConsumer).
+ * Wire in ServiceBusProcessorClient from spring-cloud-azure-starter-servicebus.</p>
+ */
+@Component
+public class SampleEventConsumer {
+
+    private static final Logger log = LoggerFactory.getLogger(SampleEventConsumer.class);
+
+    // TODO: Wire ServiceBusProcessorClient and implement message handlers
+    // @ServiceBusListener(destination = "sample-events")
+    // public void onMessage(ServiceBusReceivedMessage message) {
+    //     String subject = message.getSubject();
+    //     String body = message.getBody().toString();
+    //     log.info("Received Service Bus message: subject={}, body={}", subject, body);
+    //     // Process based on subject: sample.created, sample.updated, sample.deleted
+    // }
+}
+<%_ } -%>

@@ -25,7 +25,8 @@ This service was scaffolded using Forge CLI to follow organizational standards.
 ## Consequences
 
 - All developers need Docker for local development (SQL Server + TestContainers)
-<% if (messaging === 'Kafka') { %>- Kafka must be available locally (Docker Compose recommended)
-<% } %>
+<%_ if (messaging === 'Kafka') { -%>
+- Kafka must be available locally (Docker Compose recommended)
+<%_ } -%>
 - Security is always on (even with auth=None, security headers are applied)
 - Coverage enforcement may require writing tests before new features pass CI

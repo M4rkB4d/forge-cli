@@ -7,22 +7,31 @@ Spring Boot 4.0.5 backend service scaffolded with [Forge CLI](https://github.com
 - Java 21 (LTS)
 - Maven 3.9+
 - Docker (for local SQL Server and TestContainers)
-<% if (messaging === 'Kafka') { %>- Apache Kafka (local: Docker Compose or Confluent Platform)
-<% } %>
+<%_ if (messaging === 'Kafka') { -%>
+- Apache Kafka (local: Docker)
+<%_ } -%>
 
 ## Quick Start
 
-```bash
-# Start SQL Server locally (Docker)
-docker run -e "ACCEPT_EULA=Y" -e "SA_PASSWORD=LocalDev123!" \
-  -p 1433:1433 -d mcr.microsoft.com/mssql/server:2022-latest
-<% if (messaging === 'Kafka') { %>
-# Start Kafka locally (Docker)
-docker compose up -d kafka
-<% } %>
+```
+# 1. Start SQL Server locally (Docker)
+docker run -d --name <%= projectName %>-sqlserver -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=LocalDev123!" -p 1433:1433 mcr.microsoft.com/mssql/server:2022-latest
 
-# Run the application
+# 2. Create the database (wait ~10s for SQL Server to start, then run)
+docker exec <%= projectName %>-sqlserver /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "LocalDev123!" -Q "CREATE DATABASE [<%= projectName %>]" -C
+<%_ if (messaging === 'Kafka') { -%>
+
+# 3. Start Kafka locally (Docker — KRaft mode, no Zookeeper)
+docker run -d --name <%= projectName %>-kafka -p 9092:9092 -e KAFKA_NODE_ID=1 -e KAFKA_PROCESS_ROLES=broker,controller -e KAFKA_LISTENERS=PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093 -e KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://localhost:9092 -e KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER -e KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT -e KAFKA_CONTROLLER_QUORUM_VOTERS=1@localhost:9093 -e KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1 -e CLUSTER_ID=MkU3OEVBNTcwNTJENDM2Qk apache/kafka:latest
+<%_ } -%>
+
+# <%= messaging === 'Kafka' ? '4' : '3' %>. Run the application
 ./mvnw spring-boot:run
+```
+
+**Cleanup:** To stop and remove the containers when done:
+```
+docker rm -f <%= projectName %>-sqlserver<%= messaging === 'Kafka' ? ' ' + projectName + '-kafka' : '' %>
 ```
 
 ## Building
@@ -69,24 +78,66 @@ docker run -p 8080:8080 \
 
 ```
 src/main/java/<%= groupId.replace(/\./g, '/') %>/
-├── config/          # Spring configuration classes
-├── controller/      # REST controllers
-├── service/         # Business logic
-├── repository/      # Data access (Spring Data JPA)
+├── config/              # Spring configuration (Security, JPA, OpenAPI)
+├── controller/          # REST controllers (SampleController)
+├── service/             # Business logic interfaces
+│   └── impl/            # Service implementations (SampleServiceImpl)
+├── repository/          # Data access — Spring Data JPA (SampleRepository)
 ├── domain/
-│   ├── entity/      # JPA entities
-│   ├── enums/       # Domain enumerations
-│   └── event/       # Domain events
+│   └── entity/          # JPA entities (BaseEntity, SampleEntity)
 ├── dto/
-│   ├── request/     # Inbound DTOs
-│   └── response/    # Outbound DTOs
-├── exception/       # Exception hierarchy + global handler
-├── mapper/          # Entity <-> DTO mappers
-├── client/          # External service clients
-├── util/            # Utilities (CorrelationIdFilter, MaskingUtil)
-├── messaging/       # Message producers and consumers
-└── specification/   # JPA Specifications for dynamic queries
+│   ├── request/         # Inbound DTOs (SampleRequest)
+│   └── response/        # Outbound DTOs (SampleResponse)
+├── exception/           # Exception hierarchy + GlobalExceptionHandler
+├── mapper/              # Entity ↔ DTO mappers (SampleMapper)
+├── client/              # External service clients
+├── util/                # Utilities (CorrelationIdFilter, MaskingUtil)
+├── messaging/
+│   ├── producer/        # Event producers (SampleEventProducer)
+│   └── consumer/        # Event consumers (SampleEventConsumer)
+└── specification/       # JPA Specifications for dynamic queries
+
+src/main/resources/
+├── application.yml              # Common configuration
+├── application-local.yml        # Local dev profile
+├── application-dev.yml          # Dev environment
+├── application-sit.yml          # SIT environment
+├── application-uat.yml          # UAT environment
+├── application-prod.yml         # Production
+├── db/migration/
+│   └── V1__create_sample_table.sql  # Flyway migration
+└── logback-spring.xml           # Logging (JSON in non-local)
+
+src/test/java/<%= groupId.replace(/\./g, '/') %>/
+├── config/              # TestContainersConfig (SQL Server)
+├── controller/          # Controller slice tests (SampleControllerTest)
+├── service/             # Unit tests (SampleServiceImplTest)
+├── repository/          # Repository integration tests (SampleRepositoryTest)
+├── integration/         # Full integration tests (SampleIntegrationTest)
+└── fixture/             # Test data factory (TestDataFactory)
 ```
+
+## Sample Vertical Slice
+
+This project ships with a working **Sample** CRUD example that demonstrates all patterns end-to-end:
+
+| Layer | File | Pattern |
+|-------|------|---------|
+| Entity | `SampleEntity` | JPA entity extending `BaseEntity`, audit fields, business methods |
+| Repository | `SampleRepository` | Spring Data JPA + `JpaSpecificationExecutor` |
+| Specification | `SampleSpecification` | Dynamic query composition with `.and()` / `.or()` |
+| Service | `SampleServiceImpl` | `@Transactional`, Resilience4j, exception handling, logging |
+| Controller | `SampleController` | REST API at `/api/v1/samples`, validation, pagination, proper HTTP status codes |
+| DTOs | `SampleRequest` / `SampleResponse` | Java records with validation annotations |
+| Mapper | `SampleMapper` | Static utility — entity ↔ DTO conversion |
+<% if (messaging === 'Kafka') { %>| Messaging | `SampleEventProducer` / `SampleEventConsumer` | Kafka with manual ack, idempotent producer |
+<% } else if (messaging === 'Azure Service Bus') { %>| Messaging | `SampleEventProducer` / `SampleEventConsumer` | Azure Service Bus (scaffolded, wire ServiceBusSenderClient) |
+<% } %>| Tests | `SampleControllerTest` | `@WebMvcTest` — HTTP layer only, service mocked |
+| Tests | `SampleServiceImplTest` | Mockito unit tests — business logic in isolation |
+| Tests | `SampleRepositoryTest` | Integration test with real SQL Server (TestContainers) |
+| Tests | `SampleIntegrationTest` | Full CRUD lifecycle — controller → service → repository |
+
+> **Tip:** Use the Sample as a reference, then rename/replace with your domain entities.
 
 ## Key Decisions
 

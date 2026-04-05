@@ -23,10 +23,10 @@ spring:
     clean-disabled: true
   lifecycle:
     timeout-per-shutdown-phase: 30s
-<% if (messaging === 'Kafka') { %>
+<%_ if (messaging === 'Kafka') { -%>
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS}
-<% } %>
+<%_ } -%>
 
 management:
   tracing:

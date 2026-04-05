@@ -72,7 +72,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
-<% if (authPattern === 'OAuth2 + Azure AD') { %>
+<%_ if (authPattern === 'OAuth2 + Azure AD') { -%>
 
         <!-- OAuth2 Resource Server (Boot 4: combined starter) -->
         <dependency>
@@ -85,15 +85,15 @@
             <groupId>com.azure.spring</groupId>
             <artifactId>spring-cloud-azure-starter-active-directory</artifactId>
         </dependency>
-<% } %>
-<% if (authPattern === 'JWT') { %>
+<%_ } -%>
+<%_ if (authPattern === 'JWT') { -%>
 
         <!-- OAuth2 Resource Server (JWT validation) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security-oauth2-resource-server</artifactId>
         </dependency>
-<% } %>
+<%_ } -%>
 
         <!-- Resilience4j -->
         <dependency>
@@ -131,22 +131,22 @@
             <artifactId>jspecify</artifactId>
             <version>1.0.0</version>
         </dependency>
-<% if (messaging === 'Kafka') { %>
+<%_ if (messaging === 'Kafka') { -%>
 
         <!-- Kafka -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-kafka</artifactId>
         </dependency>
-<% } %>
-<% if (messaging === 'Azure Service Bus') { %>
+<%_ } -%>
+<%_ if (messaging === 'Azure Service Bus') { -%>
 
         <!-- Azure Service Bus (Spring Messaging) -->
         <dependency>
             <groupId>com.azure.spring</groupId>
             <artifactId>spring-messaging-azure-servicebus</artifactId>
         </dependency>
-<% } %>
+<%_ } -%>
 
         <!-- Test -->
         <dependency>
@@ -208,7 +208,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-<% if (authPattern === 'OAuth2 + Azure AD' || messaging === 'Azure Service Bus') { %>
+<%_ if (authPattern === 'OAuth2 + Azure AD' || messaging === 'Azure Service Bus') { -%>
 
             <!-- Spring Cloud Azure BOM -->
             <dependency>
@@ -218,7 +218,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-<% } %>
+<%_ } -%>
         </dependencies>
     </dependencyManagement>
 
