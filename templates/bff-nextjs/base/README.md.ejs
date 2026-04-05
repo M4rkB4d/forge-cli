@@ -1,15 +1,185 @@
 # <%= projectName %>
 
-Next.js standalone BFF service (API only).
+Next.js 16 BFF (Backend-for-Frontend) service. This is an **API-only** project — no React pages, no UI. It sits between your frontend apps and your backend microservices, handling auth, request validation, response transformation, and error normalization.
 
-## Setup
+## Getting Started
 
 ```bash
+# Install dependencies
 npm install
+
+# Start the dev server (http://localhost:3000)
 npm run dev
 ```
 
-## API
+Once running, try these endpoints:
 
-- Health: `GET /api/health`
-- Example: `GET /api/v1/example`
+| Endpoint | Method | What It Does |
+|----------|--------|-------------|
+| `/api/health` | GET | Returns `{ status: "UP" }` — use for liveness probes |
+| `/api/health/ready` | GET | Checks downstream services — use for readiness probes |
+| `/api/sample` | GET | Lists sample items (supports `?page=1&limit=10`) |
+| `/api/sample` | POST | Creates a new sample item |
+| `/api/sample/:id` | GET | Gets a single sample item |
+| `/api/sample/:id` | PUT | Updates a sample item |
+| `/api/sample/:id` | DELETE | Deletes a sample item |
+
+The `/api/sample` endpoints are a **working example** of the full BFF pattern. Use them as a reference when building your own routes, then delete them when you no longer need them.
+
+## Project Structure
+
+```
+<%= projectName %>/
+├── app/api/                  # API routes (the BFF layer)
+│   ├── health/               # Health + readiness endpoints
+│   ├── sample/               # Example CRUD routes (copy this pattern)
+│   └── example/              # Minimal route showing the basics
+├── clients/                  # HTTP clients for backend services
+│   ├── base-client.ts        # Shared Axios config (retry, logging, correlation IDs)
+│   └── sample-client.ts      # Example client (one per backend service)
+├── mappers/                  # Transform backend responses → frontend shapes
+│   └── sample-mapper.ts      # Example mapper
+├── lib/
+│   ├── auth/                 # Authentication + authorization
+│   │   ├── token-validator.ts  # Validates incoming tokens
+│   │   └── rbac.ts           # Role-based access control helpers
+│   ├── config/
+│   │   └── env.ts            # Environment variables (validated with Zod at startup)
+│   ├── errors/               # Error handling utilities
+│   ├── logging/              # Pino structured logger + correlation IDs
+│   └── validation/           # Zod schemas for request validation
+├── types/
+│   ├── api/                  # Types for what THIS service exposes
+│   └── backend/              # Types for what BACKEND services return
+├── mocks/                    # MSW mock server for testing
+├── tests/                    # Test files
+├── proxy.ts                  # Runs before every request (auth, CSP, correlation IDs)
+├── instrumentation.ts        # Graceful shutdown handler
+├── next.config.ts            # Next.js configuration
+└── Dockerfile                # Production-ready multi-stage Docker build
+```
+
+## How the BFF Pattern Works
+
+Every route follows the same flow:
+
+```
+Incoming request
+  → proxy.ts (adds correlation ID, checks auth, sets security headers)
+  → Route handler (validates request with Zod)
+  → Client (calls backend service with auth + retry + logging)
+  → Mapper (transforms backend response to frontend shape)
+  → Response sent to frontend
+```
+
+**Route handlers** validate and orchestrate. They never call backends directly or contain business logic.
+
+**Clients** handle HTTP communication with backend services. One client per service. They add auth tokens, correlation IDs, retry failed requests, and log everything.
+
+**Mappers** transform data. Backend shapes go in, frontend shapes come out. This is the only place where response transformation happens.
+
+## Adding a New Route
+
+Say you need to add an `/api/accounts` endpoint that talks to an accounts backend service.
+
+### 1. Define the types
+
+```
+types/
+  api/accounts.ts        # What your frontend receives
+  backend/accounts.ts    # What the accounts service returns
+```
+
+### 2. Create the client
+
+```
+clients/accounts-client.ts   # HTTP calls to the accounts service
+```
+
+Copy `sample-client.ts` and change the base URL and methods.
+
+### 3. Create the mapper
+
+```
+mappers/account-mapper.ts    # Backend shape → frontend shape
+```
+
+### 4. Create the route
+
+```
+app/api/accounts/route.ts          # GET (list), POST (create)
+app/api/accounts/[id]/route.ts     # GET (single), PUT, DELETE
+```
+
+### 5. Add tests
+
+```
+tests/accounts-client.test.ts
+tests/account-mapper.test.ts
+tests/accounts-route.test.ts
+mocks/handlers/accounts-handlers.ts
+```
+
+## Available Scripts
+
+| Command | What It Does |
+|---------|-------------|
+| `npm run dev` | Starts the dev server with hot reload |
+| `npm run build` | Creates a production build (standalone output) |
+| `npm start` | Runs the production build |
+| `npm run lint` | Runs ESLint |
+| `npm test` | Runs all tests once |
+| `npm run test:watch` | Runs tests in watch mode |
+| `npm run test:coverage` | Runs tests with coverage report |
+
+## Environment Variables
+
+All environment variables are defined and validated in `lib/config/env.ts`. The app **will not start** if required variables are missing or invalid.
+
+Copy `.env.example` to `.env.local` and fill in the values:
+
+```bash
+cp .env.example .env.local
+```
+
+See `.env.example` for the full list with descriptions.
+
+## Testing
+
+Tests use [Vitest](https://vitest.dev/) and [MSW](https://mswjs.io/) (Mock Service Worker).
+
+- **Route tests** (`tests/sample-route.test.ts`) — Call route handlers directly, mock the client layer
+- **Client tests** (`tests/sample-client.test.ts`) — Use MSW to mock HTTP responses from backend services
+- **Mapper tests** (`tests/sample-mapper.test.ts`) — Pure function tests, no mocking needed
+- **Health tests** (`tests/health.test.ts`) — Verify health endpoint returns correct shape
+
+```bash
+# Run all tests
+npm test
+
+# Run a specific test file
+npx vitest run tests/sample-route.test.ts
+
+# Run in watch mode (re-runs on file changes)
+npm run test:watch
+```
+
+## Docker
+
+Build and run with Docker:
+
+```bash
+docker build -t <%= projectName %> .
+docker run -p 3000:3000 --env-file .env.local <%= projectName %>
+```
+
+The Dockerfile uses a multi-stage build that produces a minimal standalone image. The health check is built in — Kubernetes liveness and readiness probes should point to `/api/health` and `/api/health/ready`.
+
+## Key Decisions
+
+- **No React pages** — This is a pure API service. The `app/` directory only contains API routes.
+- **Standalone output** — `next.config.ts` sets `output: 'standalone'` for minimal Docker images.
+- **Pino logging** — Structured JSON logs, not `console.log`. Every log includes the correlation ID.
+- **Zod validation** — All incoming requests are validated with schemas. Invalid requests get a clear error before any backend call happens.
+- **Retry with backoff** — The base client retries failed GET/HEAD requests (502, 503, 504) with exponential backoff, up to 3 attempts.
+- **proxy.ts** — Replaces the old `middleware.ts` (Next.js 16 change). Runs before every request to handle auth and security headers.

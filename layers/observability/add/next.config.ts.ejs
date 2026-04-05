@@ -4,7 +4,14 @@ const config: NextConfig = {
   output: 'standalone',
 
   // Server-side packages that shouldn't be bundled
-  serverExternalPackages: ['pino', 'pino-pretty'],
+  serverExternalPackages: [
+    'pino',
+    'pino-pretty',
+    '@opentelemetry/sdk-node',
+    '@opentelemetry/exporter-trace-otlp-http',
+    '@opentelemetry/resources',
+    '@opentelemetry/semantic-conventions',
+  ],
 
   // Turbopack is the default bundler in Next.js 16
   turbopack: {},

@@ -1,0 +1,45 @@
+export async function register() {
+  // --- Graceful shutdown ---
+  const shutdownHandler = (signal: string) => {
+    console.log(`[<%= projectName %>] ${signal} received — shutting down gracefully`);
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => shutdownHandler('SIGTERM'));
+  process.on('SIGINT', () => shutdownHandler('SIGINT'));
+
+  // --- OpenTelemetry ---
+  if (process.env.OTEL_EXPORTER_OTLP_ENDPOINT) {
+    const { NodeSDK } = await import('@opentelemetry/sdk-node');
+    const { OTLPTraceExporter } = await import('@opentelemetry/exporter-trace-otlp-http');
+    const { resourceFromAttributes } = await import('@opentelemetry/resources');
+    const { ATTR_SERVICE_NAME } = await import('@opentelemetry/semantic-conventions');
+
+    const sdk = new NodeSDK({
+      resource: resourceFromAttributes({
+        [ATTR_SERVICE_NAME]: '<%= projectName %>',
+      }),
+      traceExporter: new OTLPTraceExporter({
+        url: `${process.env.OTEL_EXPORTER_OTLP_ENDPOINT}/v1/traces`,
+      }),
+    });
+
+    sdk.start();
+
+    const originalHandler = shutdownHandler;
+    const otelShutdownHandler = async (signal: string) => {
+      console.log(`[<%= projectName %>] Flushing OTel spans before shutdown`);
+      try {
+        await sdk.shutdown();
+      } catch (err) {
+        console.error('[<%= projectName %>] OTel shutdown error:', err);
+      }
+      originalHandler(signal);
+    };
+
+    process.removeAllListeners('SIGTERM');
+    process.removeAllListeners('SIGINT');
+    process.on('SIGTERM', () => otelShutdownHandler('SIGTERM'));
+    process.on('SIGINT', () => otelShutdownHandler('SIGINT'));
+  }
+}

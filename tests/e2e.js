@@ -158,7 +158,7 @@ const configs = [
       assertFile(dir, 'package.json');
       assertFile(dir, 'app/api/health/route.ts');
       assertFile(dir, 'proxy.ts');
-      assertNotContains(dir, 'package.json', 'react');
+      assertNotInDeps(dir, 'package.json', 'react');
       assertNoAiTrace(dir);
     },
     build: buildNode,
@@ -312,6 +312,13 @@ function assertContains(dir, path, str) {
 function assertNotContains(dir, path, str) {
   const content = readFileSync(join(dir, path), 'utf-8');
   if (content.includes(str)) throw new Error(`${path} should NOT contain "${str}"`);
+}
+
+function assertNotInDeps(dir, path, pkg) {
+  const json = JSON.parse(readFileSync(join(dir, path), 'utf-8'));
+  if (json.dependencies && Object.keys(json.dependencies).some(k => k === pkg)) {
+    throw new Error(`${path} should NOT have "${pkg}" in dependencies`);
+  }
 }
 
 function assertNoAiTrace(dir) {

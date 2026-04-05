@@ -13,6 +13,6 @@
       "choices": ["Azure AD Token Validation", "JWT", "None"]
     }
   ],
-  "compatibleLayers": ["azure-infra", "ci-pipeline"],
+  "compatibleLayers": ["azure-infra", "ci-pipeline", "observability"],
   "postCreate": []
 }

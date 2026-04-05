@@ -1,0 +1,10 @@
+export async function register() {
+  // --- Graceful shutdown ---
+  const shutdownHandler = (signal: string) => {
+    console.log(`[<%= projectName %>] ${signal} received — shutting down gracefully`);
+    process.exit(0);
+  };
+
+  process.on('SIGTERM', () => shutdownHandler('SIGTERM'));
+  process.on('SIGINT', () => shutdownHandler('SIGINT'));
+}

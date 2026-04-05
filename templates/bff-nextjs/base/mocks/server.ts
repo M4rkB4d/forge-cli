@@ -1,8 +1,6 @@
 import { setupServer } from 'msw/node';
-
-// Import handlers from ./handlers/ as features are added
-// import { exampleHandlers } from './handlers/example';
+import { sampleHandlers } from './handlers/sample-handlers';
 
 export const server = setupServer(
-  // ...exampleHandlers,
+  ...sampleHandlers,
 );

@@ -79,11 +79,11 @@ console.log('╚═════════════════════�
   }
 
   const layers = getLayers();
-  assert(Array.isArray(layers) && layers.length === 3, suite, 'getLayers returns 3 layers',
+  assert(Array.isArray(layers) && layers.length === 4, suite, 'getLayers returns 4 layers',
     `got ${layers.length}`);
 
   const layerIds = layers.map(l => l.id).sort();
-  assert(JSON.stringify(layerIds) === JSON.stringify(['azure-infra', 'azure-sql', 'ci-pipeline'].sort()),
+  assert(JSON.stringify(layerIds) === JSON.stringify(['azure-infra', 'azure-sql', 'ci-pipeline', 'observability'].sort()),
     suite, 'all layer IDs present');
 
   // Compatible layers

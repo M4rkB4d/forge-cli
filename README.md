@@ -132,6 +132,7 @@ Layers are optional features that get merged into your generated project:
 | `azure-sql` | Azure Key Vault config for managed identity database access (Spring Boot only) |
 | `azure-infra` | Bicep infrastructure-as-code files for Azure deployment |
 | `ci-pipeline` | CI/CD workflow — GitHub Actions (`.github/workflows/ci.yml`) or Azure DevOps (`azure-pipelines.yml`) |
+| `observability` | OpenTelemetry tracing — adds `@opentelemetry/*` packages and wires up `instrumentation.ts` with OTLP export |
 
 Not all layers are compatible with all templates. The CLI only shows layers that work with your chosen template.
 
@@ -288,6 +289,69 @@ admin-portal/
     styles/
       globals.css
     vite-env.d.ts
+```
+
+### Next.js BFF (example: `payment-gateway`)
+
+```
+payment-gateway/
+  package.json
+  tsconfig.json
+  next.config.ts
+  Dockerfile
+  .dockerignore
+  .gitignore
+  .env.example
+  proxy.ts                             # Runs before every request (auth, CSP, correlation IDs)
+  instrumentation.ts                   # Graceful shutdown handler
+  app/api/
+    health/
+      route.ts                         # GET /api/health (liveness)
+      ready/
+        route.ts                       # GET /api/health/ready (readiness)
+    sample/
+      route.ts                         # GET (list), POST (create) — working example
+      [id]/
+        route.ts                       # GET, PUT, DELETE — working example
+    example/
+      route.ts                         # Minimal route showing the basics
+  clients/
+    base-client.ts                     # Shared Axios config (retry, logging, correlation IDs)
+    sample-client.ts                   # Example backend service client
+  mappers/
+    sample-mapper.ts                   # Backend → frontend response transformation
+  lib/
+    auth/
+      token-validator.ts               # Token validation (varies by auth pattern)
+      rbac.ts                          # Role-based access control helpers
+    config/
+      env.ts                           # Zod-validated environment variables
+    errors/
+      api-error.ts                     # Custom error classes
+      error-response.ts                # Standardized error responses
+    logging/
+      logger.ts                        # Pino structured logger
+      correlation.ts                   # Correlation ID utilities
+    validation/
+      schemas.ts                       # Shared Zod schemas
+      sample-schema.ts                 # Example request validation schemas
+  types/
+    api/
+      sample.ts                        # Types for what the BFF exposes
+    backend/
+      sample.ts                        # Types for what backend services return
+  mocks/
+    server.ts                          # MSW mock server setup
+    handlers/
+      sample-handlers.ts              # Mock backend responses for testing
+    data/
+      sample-data.ts                   # Test data factories
+  tests/
+    health.test.ts                     # Health endpoint tests
+    sample-route.test.ts               # Route handler tests
+    sample-client.test.ts              # Client tests with MSW
+    sample-mapper.test.ts              # Mapper tests
+    setup.ts                           # Test setup (MSW server lifecycle)
 ```
 
 ## After Generation

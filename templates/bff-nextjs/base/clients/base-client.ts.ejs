@@ -1,13 +1,42 @@
-import axios, { type AxiosInstance, type AxiosError } from 'axios';
+import axios, {
+  type AxiosInstance,
+  type AxiosError,
+  type InternalAxiosRequestConfig,
+} from 'axios';
 import http from 'http';
 import https from 'https';
+import { logger } from '@/lib/logging/logger';
+
+const TRANSIENT_STATUS_CODES = new Set([502, 503, 504]);
+const TRANSIENT_ERROR_CODES = new Set(['ECONNABORTED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET']);
+const MAX_RETRIES = 3;
+const BASE_DELAY_MS = 300;
 
 interface ClientOptions {
   baseURL: string;
   timeout?: number;
+  retries?: number;
+}
+
+function isRetryable(error: AxiosError): boolean {
+  if (error.response && TRANSIENT_STATUS_CODES.has(error.response.status)) return true;
+  if (error.code && TRANSIENT_ERROR_CODES.has(error.code)) return true;
+  return false;
+}
+
+function isIdempotent(method?: string): boolean {
+  const m = method?.toUpperCase();
+  return m === 'GET' || m === 'HEAD';
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function createClient(serviceName: string, options: ClientOptions): AxiosInstance {
+  const log = logger.child({ client: serviceName });
+  const maxRetries = options.retries ?? MAX_RETRIES;
+
   const client = axios.create({
     baseURL: options.baseURL,
     timeout: options.timeout ?? 5000,
@@ -25,18 +54,49 @@ export function createClient(serviceName: string, options: ClientOptions): Axios
     return config;
   });
 
-  // Response interceptor — normalize errors
+  // Response interceptor — retry transient failures on idempotent methods + structured error logging
   client.interceptors.response.use(
     (response) => response,
-    (error: AxiosError) => {
-      const status = error.response?.status;
-      const data = error.response?.data;
+    async (error: AxiosError) => {
+      const config = error.config as InternalAxiosRequestConfig & { __retryCount?: number };
+      if (!config) return Promise.reject(error);
 
-      // Log downstream failures (logger injected at route level)
-      console.error(`[${serviceName}] ${error.config?.method?.toUpperCase()} ${error.config?.url} → ${status ?? 'NETWORK_ERROR'}`);
+      const retryCount = config.__retryCount ?? 0;
+      const correlationId = config.headers?.['X-Correlation-Id'] ?? 'unknown';
+      const method = config.method?.toUpperCase() ?? 'UNKNOWN';
+      const url = config.url ?? 'unknown';
+      const status = error.response?.status ?? error.code ?? 'NETWORK_ERROR';
+
+      // Retry idempotent requests on transient errors
+      if (isIdempotent(config.method) && isRetryable(error) && retryCount < maxRetries) {
+        config.__retryCount = retryCount + 1;
+        const backoff = BASE_DELAY_MS * Math.pow(2, retryCount);
+
+        log.warn(
+          { correlationId, method, url, status, attempt: retryCount + 1, maxRetries, backoffMs: backoff },
+          'Retrying transient failure',
+        );
+
+        await delay(backoff);
+        return client.request(config);
+      }
+
+      // Structured error log for non-retryable or exhausted retries
+      log.error(
+        {
+          correlationId,
+          method,
+          url,
+          status,
+          attempts: retryCount + 1,
+          errorCode: error.code,
+          responseData: error.response?.data,
+        },
+        `Downstream call failed: ${method} ${url} → ${status}`,
+      );
 
       return Promise.reject(error);
-    }
+    },
   );
 
   return client;
